@@ -1,6 +1,7 @@
 # pv
-misc. software to monitor my off-grid PV\n
-Includes:
+misc. software to monitor my off-grid PV
+
+#Includes:
 pvMonitorSocket.py - simple micropython Wemos D1 voltage/current sensor. 
   ADS1115 ADC, since ESP8266/32 ADC is so bad 
   SSD1315 128*64 local display (optional)
@@ -11,4 +12,6 @@ pvScrape.py - simple python3 script to poll sensors and (less often) update Sqll
   pvScrape also publishes data to local Mosquitto MQTT broker
 pvDisplayMQTT - simple micropython display that subscribes to and displays MQTT messages about sensor values
   SSD1306 128*64 display
-  
+
+## License
+[MIT](https://choosealicense.com/licenses/mit/)  
