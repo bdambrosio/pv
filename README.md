@@ -6,7 +6,7 @@ misc. software to monitor my off-grid PV
   - ADS1115 ADC, since ESP8266/32 ADC is so bad 
   - SSD1315 128*64 local display (optional)
   - TCP socket to accept data request. 
-    Data request can include json parameters (scale, offset) for both voltage and current.
+    Data request can include json parameters (v_scale, v_offset, i_scale, i_offset) for both voltage and current.
     This allows changing parameters without having to access remote sensors.
 - pvScrape.py - simple python3 script to poll sensors and (less often) update Sqllite db.
   pvScrape also publishes data to local Mosquitto MQTT broker
