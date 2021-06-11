@@ -1,5 +1,5 @@
 # pv
-misc. software to monitor my off-grid PV
+misc. software to monitor my off-grid PV\n
 Includes:
 pvMonitorSocket.py - simple micropython Wemos D1 voltage/current sensor. 
   ADS1115 ADC, since ESP8266/32 ADC is so bad 
