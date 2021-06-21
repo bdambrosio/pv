@@ -99,8 +99,13 @@ if ads_present: # absent for test sensor for testing pvScrape comm
 
 while True:
     try:
+        s.settimeout(3)
         cl, addr = s.accept()
+    except:
+        pass
+    if cl is not None:
         try:
+            s.settimeout(3)
             _jsonScale = cl.recv(256)
             # print("received", _jsonScale)
             _scale = json.loads(_jsonScale)
@@ -140,6 +145,7 @@ while True:
                 # method will not return a connection error.
                 print("reconnecting to network")
                 wlan.connect()
+        s.settimeout(3)
         cl.send(json.dumps(measurements))
     except:
         try:

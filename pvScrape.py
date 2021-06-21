@@ -6,6 +6,7 @@ import paho.mqtt.client as mqtt
 import json
 import sqlite3
 import sys
+
 db = sqlite3.connect('pv.db')
 hourly_total = {}
 hourly_count = {}
@@ -114,7 +115,6 @@ def process_sensor(ipaddr, prefix, scale):
                 update_db(label, value)
             except:
                 print ("error processing ", label)
-
 while True:
     # print("checking connection")
     utime.sleep(5)
@@ -125,5 +125,3 @@ while True:
     elif  sys.argv[1] == 'test':
         print("processing test sensor")
         process_sensor(sys.argv[2], battery_test_prefix, battery_test_scale)
-        
-
