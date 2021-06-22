@@ -6,7 +6,6 @@ import paho.mqtt.client as mqtt
 import json
 import sqlite3
 import sys
-
 db = sqlite3.connect('pv.db')
 hourly_total = {}
 hourly_count = {}
@@ -18,7 +17,7 @@ def update_db(topic, value):
     if not topic in hourly_total.keys():
         hourly_total[topic] = 0.0 # start new accumulator
         hourly_count[topic] = 0
-        last_db_update_time[topic] = time.time() - 1 # -1 because this measurement not in last update
+        last_db_update_time[topic] = time.time() - 3601 # because this measurement not in last update
     
     hourly_total[topic] += value
     hourly_count[topic] += 1
@@ -60,28 +59,32 @@ client.on_publish = on_publish
 client.username_pw_set(username='mosq', password='1947nw')
 client.connect("127.0.0.1", 1883, 60) 
 
-battery_input_scale = {'v_scale':398.8, 'v_offset':0.0,'i_scale':1400.0, 'ioffset':0.1}
-battery_output_scale = {'v_scale':398.8, 'v_offset':0.0,'i_scale':1425.0, 'ioffset':0.0}
-battery_test_scale = {'v_scale':398.8, 'v_offset':0.0,'i_scale':1425.0, 'ioffset':0.0}
-out_sensor_ipaddr =  '192.168.1.148'
-input_sensor_ipaddr = '192.168.1.103'
-test_sensor_ipaddr =  '192.168.1.nnn'
+battery_input_scale = {'v_scale':398.8, 'v_offset':0.0,'i_scale':111.0, 'i_offset':0.01}
+battery_input_prefix = 'pv.battery.input.'
+battery_input_ipaddr = '192.168.1.110'
 
-def process_sensor(ipaddr, scale):
+battery_output_scale = {'v_scale':398.8, 'v_offset':0.0,'i_scale':950.0, 'i_offset':0.0}
+battery_output_prefix ='pv.battery.output.'
+battery_output_ipaddr =  '192.168.1.148'
+
+battery_test_scale = {'v_scale':398.8, 'v_offset':0.0,'i_scale':1425.0, 'i_offset':0.0}
+battery_test_prefix = 'pv.battery.test.'
+battery_test_ipaddr =  '192.168.1.110'
+
+def process_sensor(ipaddr, prefix, scale):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
+            print("connecting to ", ipaddr)
+            s.settimeout(2)
             s.connect((ipaddr, 1884)) 
-            #temp hack
-            if '103' in ipaddr:
-                print("sending to ", ipaddr)
-                s.sendall(bytearray(json.dumps(scale), 'utf8'))
-                print("sent", bytearray(json.dumps(scale), 'utf8'))
+            s.sendall(bytearray(json.dumps(scale), 'utf8'))
         except OSError:
             print ('Socket connect failed! Loop up and try socket again')
-            utime.sleep( 5.0)
+            utime.sleep( 2.0)
             return
         
         try:
+            s.settimeout(2)
             msg=s.recv(1024)
         except OSError:
             print ('Socket timeout, loop and try recv() again')
@@ -100,27 +103,29 @@ def process_sensor(ipaddr, scale):
             try:
                 value = data['value']
                 scaled_value = value
-                if 'voltage' in item and '148' in ipaddr:
-                    scaled_value = scale['voltage']*value
-                elif 'current' in item and '148' in ipaddr:
-                    scaled_value = scale['current']*value
+                label = prefix
+                if 'voltage' in item:
+                    label=prefix+'voltage'
+                elif 'current' in item:
+                    label=prefix+'current'
+                print(label, value)
                 try:
-                    rc = client.publish(data['units'], scaled_value)
+                    rc = client.publish(label, value)
                 except:
                     print("error posting measurement, skipping")
-                update_db(data['units'], scaled_value)
+                update_db(label, value)
             except:
-                print ("error processing ", item)
+                print ("error processing ", label)
 
 while True:
     # print("checking connection")
     utime.sleep(5)
     # try openning connection to pv monitor hardware
-    if len(sys.argv) < 1 or sys.argv[1] != 'test':
-        process_sensor(output_sensor_ipaddr, battery_output_scale)
-        process_sensor(input_sensor_ipaddr, battery_input_scale)
-    else:
+    if len(sys.argv) < 2:
+        process_sensor(battery_input_ipaddr, battery_input_prefix, battery_input_scale)
+        process_sensor(battery_output_ipaddr, battery_output_prefix, battery_output_scale)
+    elif  sys.argv[1] == 'test':
         print("processing test sensor")
-        process_sensor(test_sensor_ipaddr, battery_output_scale)
+        process_sensor(sys.argv[2], battery_test_prefix, battery_test_scale)
         
 
