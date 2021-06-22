@@ -75,6 +75,7 @@ def process_sensor(ipaddr, prefix, scale):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
             print("connecting to ", ipaddr)
+            s.settimeout(2)
             s.connect((ipaddr, 1884)) 
             s.sendall(bytearray(json.dumps(scale), 'utf8'))
         except OSError:
@@ -83,6 +84,7 @@ def process_sensor(ipaddr, prefix, scale):
             return
         
         try:
+            s.settimeout(2)
             msg=s.recv(1024)
         except OSError:
             print ('Socket timeout, loop and try recv() again')
