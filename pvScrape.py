@@ -6,7 +6,6 @@ import paho.mqtt.client as mqtt
 import json
 import sqlite3
 import sys
-
 db = sqlite3.connect('pv.db')
 hourly_total = {}
 hourly_count = {}
@@ -64,7 +63,7 @@ battery_input_scale = {'v_scale':398.8, 'v_offset':0.0,'i_scale':111.0, 'i_offse
 battery_input_prefix = 'pv.battery.input.'
 battery_input_ipaddr = '192.168.1.110'
 
-battery_output_scale = {'v_scale':398.8, 'v_offset':0.0,'i_scale':950.0, 'i_offset':0.0}
+battery_output_scale = {'v_scale':398.8, 'v_offset':-0.0105,'i_scale':75.0, 'i_offset':-.011}
 battery_output_prefix ='pv.battery.output.'
 battery_output_ipaddr =  '192.168.1.148'
 
@@ -76,6 +75,7 @@ def process_sensor(ipaddr, prefix, scale):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
             print("connecting to ", ipaddr)
+            s.settimeout(2)
             s.connect((ipaddr, 1884)) 
             s.sendall(bytearray(json.dumps(scale), 'utf8'))
         except OSError:
@@ -84,6 +84,7 @@ def process_sensor(ipaddr, prefix, scale):
             return
         
         try:
+            s.settimeout(2)
             msg=s.recv(1024)
         except OSError:
             print ('Socket timeout, loop and try recv() again')
@@ -115,6 +116,7 @@ def process_sensor(ipaddr, prefix, scale):
                 update_db(label, value)
             except:
                 print ("error processing ", label)
+
 while True:
     # print("checking connection")
     utime.sleep(5)
