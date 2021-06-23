@@ -53,7 +53,16 @@ if oled_present:
               
     oled.show()
 
+def checkWlan():
+    if not wlan.isconnected():
+        while not wlan.connect():
+            try:
+                wlan.connect()
+            except:
+                pass
+
 #get network object so we can check connection status
+checkWlan()
 wlan = network.WLAN(network.STA_IF);
 ipaddr = wlan.ifconfig()[0]
 
@@ -63,15 +72,6 @@ if '148' in ipaddr:
     
 # start socket service
 sock_addr=socket.getaddrinfo('0.0.0.0', 1884)[0][-1]
-
-def checkWlan():
-    if not wlan.isconnected():
-        while not wlan.connect():
-            try:
-                wlan.connect()
-            except:
-                pass
-
 
 def makeSocket():
     #assumes any prior socket on this port has been closed
