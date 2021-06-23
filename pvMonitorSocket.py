@@ -69,6 +69,7 @@ ipaddr = wlan.ifconfig()[0]
 #hack because i damaged ADC 0 and 1 on this board.
 if '148' in ipaddr:
     is_damaged_ADS1115 = True
+    print("damaged_ADS1115 hack True")
     
 # start socket service
 sock_addr=socket.getaddrinfo('0.0.0.0', 1884)[0][-1]
@@ -91,7 +92,7 @@ jsonAmps = {'value':-1.0}
 measurements['voltage'] = jsonVolts
 measurements['current'] = jsonAmps
 
-default_scale = {'v_scale':398.8, 'v_offset':0.0, 'i_scale':1652, 'i_offset':-1380.0}
+default_scale = {'v_scale':398.8, 'v_offset':-0.011, 'i_scale':75, 'i_offset':0.011
 #micropython.mem_info()
 
 v1 = -1
