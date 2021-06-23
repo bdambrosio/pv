@@ -6,7 +6,7 @@ import paho.mqtt.client as mqtt
 import json
 import sqlite3
 import sys
-db = sqlite3.connect('pv.db')
+db = sqlite3.connect('/home/pi/Documents/PV_DB/pv.db')
 hourly_total = {}
 hourly_count = {}
 last_db_update_time = {}
