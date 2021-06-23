@@ -57,13 +57,31 @@ if oled_present:
 wlan = network.WLAN(network.STA_IF);
 ipaddr = wlan.ifconfig()[0]
 
+#hack because i damaged ADC 0 and 1 on this board.
+if '148' in ipaddr:
+    is_damaged_ADS1115 = True
+    
 # start socket service
 sock_addr=socket.getaddrinfo('0.0.0.0', 1884)[0][-1]
-s = socket.socket()
-s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-s.bind(sock_addr)
-s.listen(5)
 
+def checkWlan():
+    if not wlan.isconnected():
+        while not wlan.connect():
+            try:
+                wlan.connect()
+            except:
+                pass
+
+
+def makeSocket():
+    #assumes any prior socket on this port has been closed
+    s = socket.socket()
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.bind(sock_addr)
+    s.listen(5)
+    return s
+
+s = makeSocket()
 print('listening on', ipaddr)
 
 
@@ -73,7 +91,7 @@ jsonAmps = {'value':-1.0}
 measurements['voltage'] = jsonVolts
 measurements['current'] = jsonAmps
 
-default_scale = {'v_scale':398.8, 'v_offset':0.0, 'i_scale':1454.5, 'i_offset':0.0}
+default_scale = {'v_scale':398.8, 'v_offset':0.0, 'i_scale':1652, 'i_offset':-1380.0}
 #micropython.mem_info()
 
 v1 = -1
@@ -98,60 +116,77 @@ if ads_present: # absent for test sensor for testing pvScrape comm
     print ("v2", v2, "i2",i2)
 
 while True:
+    cl = None
     try:
-        s.settimeout(3)
+        s.settimeout(5)
         cl, addr = s.accept()
     except:
         pass
-    if cl is not None:
-        try:
-            s.settimeout(3)
-            _jsonScale = cl.recv(256)
-            # print("received", _jsonScale)
-            _scale = json.loads(_jsonScale)
-        except:
-            print("failed to get scale")
-            _scale = default_scale
-        v = -1.0
-        i = -1.0
-        # denoise: take two readings a sec apart and average
-        if ads_present:
-            _v1 = aadc.read(0,2)
-            utime.sleep_ms(200)
-            _i1 = aadc.read(0,0,1)
-            utime.sleep_ms(200)
-            _v2 = aadc.read(0,2)
-            utime.sleep_ms(200)
-            _i2 = aadc.read(0,0,1)
-            v = (_v1+_v2)/2
-            i = (_i1+_i2)/2
-    
-        #scale into volts/amps
-        volts =  aadc.raw_to_v(v) * _scale['v_scale'] + _scale['v_offset']
-        amps =  aadc.raw_to_v(i) * _scale['i_scale'] + _scale['i_offset']
-        if not oled_present:
-            print(v, i, volts, amps)
-        # for debugging, comment out before deploy
-        print(v, i, volts, amps)
-        #publish readings via mqtt and store in table
-        jsonVolts['value'] = volts
-        jsonAmps['value'] = amps
-        # At this point in the code you must consider how to handle
-        # connection errors.  And how often to resume the connection.
+    if cl is None:
         if not wlan.isconnected():
-            print("network connection lost")
-            while not wlan.connect():
-                # If the connection is successful, the is_conn_issue
-                # method will not return a connection error.
-                print("reconnecting to network")
-                wlan.connect()
+            print("timeout on accept, wlan down")
+            s.close()
+            checkWlan()
+            s=makeSocket()
+        continue
+    #new connection, try to get scale and report data
+    try:
+        s.settimeout(5)
+        _jsonScale = cl.recv(256)
+        # print("received", _jsonScale)
+        _scale = json.loads(_jsonScale)
+    except:
+        print("failed to get scale")
+        _scale = default_scale
+    if _jsonScale is None and not wlan.isconnected():
+        print("timeout on scale recv, wlan down")
+        s.close()
+        checkWlan()
+        s=makeSocket()
+        continue
+
+    #got scale, now get raw measurements, scale, and report back
+    v = -1.0
+    i = -1.0
+    # denoise: take two readings a sec apart and average
+    if ads_present:
+        _v1 = aadc.read(0,2)
+        utime.sleep_ms(200)
+        if is_damaged_ADS1115:
+            _i1 = aadc.read(0,3)
+        else:
+            _i1 = aadc.read(0,0,1)
+        utime.sleep_ms(200)
+        _v2 = aadc.read(0,2)
+        utime.sleep_ms(200)
+        if is_damaged_ADS1115:
+            _i2 = aadc.read(0,3)
+        else:
+            _i2 = aadc.read(0,0,1)
+        v = (_v1+_v2)/2
+        i = (_i1+_i2)/2
+        
+    #scale into volts/amps
+    volts = (aadc.raw_to_v(v) - _scale['v_offset'] ) *_scale['v_scale']
+    amps =   (aadc.raw_to_v(i) - _scale['i_offset'] ) * _scale['i_scale']
+    print(v, aadc.raw_to_v(v), volts, "; ", i, aadc.raw_to_v(i), amps)
+    #publish readings via mqtt and store in table
+    jsonVolts['value'] = volts
+    jsonAmps['value'] = amps
+.015
+    _i0 = aadc.read(0,0)
+    _i1 = aadc.read(0,1)
+    _i2 = aadc.read(0,2)
+    _i3 = aadc.read(0,3)
+    print(_i0, _i1, _i2, _i3)
+
+
+    try:
         s.settimeout(3)
         cl.send(json.dumps(measurements))
     except:
-        try:
-            cl.close()
-        except:
-            pass
+        cl.close()
+
     _time = rtc.datetime()
     if oled_present:
         oled.fill_rect(0, 16, 128, 48, 0)
