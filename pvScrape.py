@@ -59,11 +59,11 @@ client.on_publish = on_publish
 client.username_pw_set(username='mosq', password='1947nw')
 client.connect("127.0.0.1", 1883, 60) 
 
-battery_input_scale = {'v_scale':400.0, 'v_offset':0.0,'i_scale':96.0, 'i_offset':0.0}
+battery_input_scale = {'v_scale':400.0, 'v_offset':0.0,'i_scale':100.0, 'i_offset':0.0}
 battery_input_prefix = 'pv.battery.input.'
 battery_input_ipaddr = '192.168.1.134'
 
-battery_output_scale = {'v_scale':398.8, 'v_offset':-0.0105,'i_scale':18.0, 'i_offset':-.011}
+battery_output_scale = {'v_scale':398.8, 'v_offset':-0.0105,'i_scale':50.0, 'i_offset':-.011}
 battery_output_prefix ='pv.battery.output.'
 battery_output_ipaddr =  '192.168.1.148'
 
