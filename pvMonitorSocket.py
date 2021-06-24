@@ -62,9 +62,9 @@ def checkWlan():
                 pass
 
 #get network object so we can check connection status
-checkWlan()
 wlan = network.WLAN(network.STA_IF);
 ipaddr = wlan.ifconfig()[0]
+checkWlan()
 
 #hack because i damaged ADC 0 and 1 on this board.
 if '148' in ipaddr:
@@ -92,7 +92,7 @@ jsonAmps = {'value':-1.0}
 measurements['voltage'] = jsonVolts
 measurements['current'] = jsonAmps
 
-default_scale = {'v_scale':398.8, 'v_offset':-0.011, 'i_scale':75, 'i_offset':0.011
+default_scale = {'v_scale':398.8, 'v_offset':-0.011, 'i_scale':75, 'i_offset':0.011}
 #micropython.mem_info()
 
 v1 = -1
@@ -174,13 +174,6 @@ while True:
     #publish readings via mqtt and store in table
     jsonVolts['value'] = volts
     jsonAmps['value'] = amps
-.015
-    _i0 = aadc.read(0,0)
-    _i1 = aadc.read(0,1)
-    _i2 = aadc.read(0,2)
-    _i3 = aadc.read(0,3)
-    print(_i0, _i1, _i2, _i3)
-
 
     try:
         s.settimeout(3)
