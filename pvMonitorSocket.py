@@ -67,6 +67,7 @@ ipaddr = wlan.ifconfig()[0]
 checkWlan()
 
 #hack because i damaged ADC 0 and 1 on this board.
+is_damaged_ADS1115 = False
 if '148' in ipaddr:
     is_damaged_ADS1115 = True
     print("damaged_ADS1115 hack True")
@@ -131,6 +132,7 @@ while True:
             s=makeSocket()
         continue
     #new connection, try to get scale and report data
+    _jsonScale = None
     try:
         s.settimeout(5)
         _jsonScale = cl.recv(256)
@@ -139,7 +141,7 @@ while True:
     except:
         print("failed to get scale")
         _scale = default_scale
-    if _jsonScale is None and not wlan.isconnected():
+    if _jsonScale is None:
         print("timeout on scale recv, wlan down")
         s.close()
         checkWlan()
@@ -152,14 +154,14 @@ while True:
     # denoise: take two readings a sec apart and average
     if ads_present:
         _v1 = aadc.read(0,2)
-        utime.sleep_ms(200)
+        utime.sleep_ms(20)
         if is_damaged_ADS1115:
             _i1 = aadc.read(0,3)
         else:
             _i1 = aadc.read(0,0,1)
-        utime.sleep_ms(200)
+        utime.sleep_ms(20)
         _v2 = aadc.read(0,2)
-        utime.sleep_ms(200)
+        utime.sleep_ms(20)
         if is_damaged_ADS1115:
             _i2 = aadc.read(0,3)
         else:
@@ -178,8 +180,11 @@ while True:
     try:
         s.settimeout(3)
         cl.send(json.dumps(measurements))
-    except:
         cl.close()
+    except:
+        s.close()
+        checkWlan()
+        s=makeSocket()
 
     _time = rtc.datetime()
     if oled_present:
