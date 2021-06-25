@@ -9,8 +9,8 @@ import threading
 
 Vin = ' 00.0'
 Vout = ' 00.0'
-Iin = ' 00.0'
-Iout = ' 00.0'
+Iin = ' 00.00'
+Iout = ' 00.00'
 ptz = pytz.timezone('America/Los_Angeles')
 utc = pytz.timezone('UTC')
 now = utc.localize(datetime.utcnow())
