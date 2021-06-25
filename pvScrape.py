@@ -26,7 +26,7 @@ def update_db(topic, value):
         try:
             hour_value = hourly_total[topic]/hourly_count[topic]
             new_row="INSERT INTO "+"'"+topic[3:]+"'"+" ('time', 'value') VALUES ({0}, {1:6.2f})".format(int_time, hour_value)
-            print(new_row)
+            #print(new_row)
             cursor=db.cursor()
             rc=cursor.execute(new_row)
             db.commit()
@@ -63,7 +63,7 @@ battery_input_scale = {'v_scale':400.0, 'v_offset':0.0,'i_scale':100.0, 'i_offse
 battery_input_prefix = 'pv.battery.input.'
 battery_input_ipaddr = '192.168.1.134'
 
-battery_output_scale = {'v_scale':398.8, 'v_offset':-0.0105,'i_scale':50.0, 'i_offset':-.011}
+battery_output_scale = {'v_scale':396.0, 'v_offset':-0.0105,'i_scale':50.0, 'i_offset':-.011}
 battery_output_prefix ='pv.battery.output.'
 battery_output_ipaddr =  '192.168.1.148'
 
@@ -74,12 +74,12 @@ battery_test_ipaddr =  '192.168.1.134'
 def process_sensor(ipaddr, prefix, scale):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
-            print("connecting to ", ipaddr)
+            #print("connecting to ", ipaddr)
             s.settimeout(2)
             s.connect((ipaddr, 1884)) 
             s.sendall(bytearray(json.dumps(scale), 'utf8'))
         except OSError:
-            print ('Socket connect failed! Loop up and try socket again')
+            print ('Socket connect failed! Loop up and try socket again', ipaddr)
             utime.sleep( 2.0)
             return
         
@@ -108,14 +108,14 @@ def process_sensor(ipaddr, prefix, scale):
                     label=prefix+'voltage'
                 elif 'current' in item:
                     label=prefix+'current'
-                print(label, value)
+                #print(label, value)
                 try:
                     rc = client.publish(label, value)
                 except:
-                    print("error posting measurement, skipping")
+                    print("error posting measurement, skipping", label, value)
                 update_db(label, value)
             except:
-                print ("error processing ", label)
+                print ("error processing ", ipaddr, item, data)
 
 while True:
     # print("checking connection")
