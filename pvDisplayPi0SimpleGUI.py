@@ -20,7 +20,7 @@ import PySimpleGUI as sg
 sg.theme('DarkAmber')   # Add a little color to your windows
 sg.set_options(font=('Helvetica', 14))
 # All the stuff inside your window. This is the PSG magic code compactor...
-layout = [  [sg.Text('PV Monitor'), sg.Text(Time, key='-time-')],
+layout = [  [sg.Text(Time, key='-time-')],
             [sg.Text('Battery In   V: '), sg.Text(Vin, key='-Vin-'),
              sg.Text(' I: '), sg.Text(Iin, key='-Iin-')],
             [sg.Text('Battery Out  V: '), sg.Text(Vout, key='-Vout-'),
@@ -28,7 +28,7 @@ layout = [  [sg.Text('PV Monitor'), sg.Text(Time, key='-time-')],
             ]
 
 # Create the Window
-window = sg.Window('Window Title', layout, no_titlebar=True)
+window = sg.Window('PV Monitor', layout, no_titlebar=True)
 
 def new_measurement(client, userdata, msg):
     topic = msg.topic
