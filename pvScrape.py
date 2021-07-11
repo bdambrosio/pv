@@ -6,7 +6,7 @@ import paho.mqtt.client as mqtt
 import json
 import sqlite3
 import sys
-db = sqlite3.connect('/home/pi/Documents/PV_DB/pv.db')
+db = sqlite3.connect('/home/pi/Documents/pv.db')
 hourly_total = {}
 hourly_count = {}
 last_db_update_time = {}
@@ -60,15 +60,15 @@ client.username_pw_set(username='mosq', password='1947nw')
 client.connect("127.0.0.1", 1883, 60) 
 
 battery_input_scale = {'v_scale':399.0, 'v_offset':0.0,'i_scale':200.0, 'i_offset':-0.0002}
-battery_input_prefix = 'pv.battery.input.'
+battery_input_prefix = 'pv/battery/input'
 battery_input_ipaddr = '192.168.1.134'
 
 battery_output_scale = {'v_scale':393.0, 'v_offset':-0.0105,'i_scale':140.0, 'i_offset':-.002}
-battery_output_prefix ='pv.battery.output.'
+battery_output_prefix ='pv/battery/output/'
 battery_output_ipaddr =  '192.168.1.148'
 
 battery_test_scale = {'v_scale':398.8, 'v_offset':0.0,'i_scale':1425.0, 'i_offset':0.0}
-battery_test_prefix = 'pv.battery.test.'
+battery_test_prefix = 'pv/battery/test/'
 battery_test_ipaddr =  '192.168.1.134'
 
 def process_sensor(ipaddr, prefix, scale):
