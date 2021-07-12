@@ -7,24 +7,24 @@ import json
 import sqlite3
 import sys
 db = sqlite3.connect('/home/pi/Documents/pv.db')
-hourly_total = {}
-hourly_count = {}
+intvl_total = {}
+intvl_count = {}
 last_db_update_time = {}
 
 def update_db(topic, value):
-    global hourly_total, hourly_count, last_db_update_time, db
+    global intvl_total, intvl_count, last_db_update_time, db
 
-    if not topic in hourly_total.keys():
-        hourly_total[topic] = 0.0 # start new accumulator
-        hourly_count[topic] = 0
-        last_db_update_time[topic] = time.time() - 3601 # because this measurement not in last update
+    if not topic in intvl_total.keys():
+        intvl_total[topic] = 0.0 # start new accumulator
+        intvl_count[topic] = 0
+        last_db_update_time[topic] = time.time() - 601 # because this measurement not in last update
     
-    hourly_total[topic] += value
-    hourly_count[topic] += 1
+    intvl_total[topic] += value
+    intvl_count[topic] += 1
     int_time = int(time.time())
-    if int_time - last_db_update_time[topic] > 3600: # more than 1 hr
+    if int_time - last_db_update_time[topic] > 600: # more than 1 hr
         try:
-            hour_value = hourly_total[topic]/hourly_count[topic]
+            hour_value = intvl_total[topic]/intvl_count[topic]
             new_row="INSERT INTO "+"'"+topic[3:]+"'"+" ('time', 'value') VALUES ({0}, {1:6.2f})".format(int_time, hour_value)
             #print(new_row)
             cursor=db.cursor()
@@ -34,8 +34,8 @@ def update_db(topic, value):
         except:
             print ("Error updating db")
         #note we reset regardless of db update success, so that eventual success will have one hr total
-        hourly_total[topic] = 0.0
-        hourly_count[topic] = 0
+        intvl_total[topic] = 0.0
+        intvl_count[topic] = 0
         last_db_update_time[topic] = int_time
 
 #setup to publish to mosquitto broker
@@ -59,11 +59,11 @@ client.on_publish = on_publish
 client.username_pw_set(username='mosq', password='1947nw')
 client.connect("127.0.0.1", 1883, 60) 
 
-battery_input_scale = {'v_scale':399.0, 'v_offset':0.0,'i_scale':200.0, 'i_offset':-0.0002}
-battery_input_prefix = 'pv/battery/input'
+battery_input_scale = {'v_scale':400.0, 'v_offset':0.0,'i_scale':250.0, 'i_offset':-0.0002}
+battery_input_prefix = 'pv/battery/input/'
 battery_input_ipaddr = '192.168.1.134'
 
-battery_output_scale = {'v_scale':393.0, 'v_offset':-0.0105,'i_scale':140.0, 'i_offset':-.002}
+battery_output_scale = {'v_scale':390.0, 'v_offset':-0.0105,'i_scale':715.0, 'i_offset':-.003}
 battery_output_prefix ='pv/battery/output/'
 battery_output_ipaddr =  '192.168.1.148'
 
