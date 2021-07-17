@@ -59,13 +59,13 @@ client.on_publish = on_publish
 client.username_pw_set(username='mosq', password='1947nw')
 client.connect("127.0.0.1", 1883, 60) 
 
-battery_input_scale = {'v_scale':400.0, 'v_offset':0.0,'i_scale':250.0, 'i_offset':-0.0002}
+battery_input_scale = {'v_scale':400.0, 'v_offset':0.0,'i_scale':220.0, 'i_offset':-0.0002}
 battery_input_prefix = 'pv/battery/input/'
 battery_input_ipaddr = '192.168.1.134'
 
-battery_output_scale = {'v_scale':390.0, 'v_offset':-0.0105,'i_scale':715.0, 'i_offset':-.003}
+battery_output_scale = {'v_scale':30.48, 'v_offset':0.0,'i_scale':11.5, 'i_offset':0.0}
 battery_output_prefix ='pv/battery/output/'
-battery_output_ipaddr =  '192.168.1.148'
+battery_output_ipaddr =  '192.168.1.103'
 
 battery_test_scale = {'v_scale':398.8, 'v_offset':0.0,'i_scale':1425.0, 'i_offset':0.0}
 battery_test_prefix = 'pv/battery/test/'
@@ -91,7 +91,7 @@ def process_sensor(ipaddr, prefix, scale):
             utime.sleep( 5.0)
             return
         
-        # print ('received', str(msg, 'utf8'))
+         # print ('received', str(msg, 'utf8'))
         try:
             measurements = json.loads(str(msg, 'utf8'))
         except:
@@ -106,13 +106,15 @@ def process_sensor(ipaddr, prefix, scale):
                 label = prefix
                 if 'voltage' in item:
                     label=prefix+'voltage'
+                    scaled_value = (value-scale['v_offset'])*scale['v_scale']
                 elif 'current' in item:
                     label=prefix+'current'
-                #print(label, value)
+                    scaled_value = (value-scale['i_offset'])*scale['i_scale']
+                print(label, scaled_value)
                 try:
-                    rc = client.publish(label, value)
+                    rc = client.publish(label, scaled_value)
                 except:
-                    print("error posting measurement, skipping", label, value)
+                    print("error posting measurement, skipping", label, scaled_value)
                 update_db(label, value)
             except:
                 print ("error processing ", ipaddr, item, data)
