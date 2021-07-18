@@ -68,10 +68,10 @@ client.on_message = new_measurement
 client.username_pw_set(username='mosq', password='1947nw')
 client.connect("192.168.1.117", 1883, 60) 
 
-client.subscribe('pv.battery.output.voltage')
-client.subscribe("pv.battery.output.current")
-client.subscribe('pv.battery.input.voltage')
-client.subscribe("pv.battery.input.current")
+client.subscribe('pv/battery/output/voltage')
+client.subscribe("pv/battery/output/current")
+client.subscribe('pv/battery/input/voltage')
+client.subscribe("pv/battery/input/current")
 
 def PSGEvents():
     while True:
