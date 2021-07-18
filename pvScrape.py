@@ -6,6 +6,7 @@ import paho.mqtt.client as mqtt
 import json
 import sqlite3
 import sys
+
 db = sqlite3.connect('/home/pi/Documents/pv.db')
 intvl_total = {}
 intvl_count = {}
