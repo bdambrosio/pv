@@ -4,13 +4,39 @@ import socket
 import time
 import paho.mqtt.client as mqtt
 import json
-import sqlite3
+from influxdb import InfluxDBClient
 import sys
+from time import ctime
+from datetime import datetime
+import pytz
+import math
 
-db = sqlite3.connect('/home/pi/Documents/pv.db')
 intvl_total = {}
 intvl_count = {}
 last_db_update_time = {}
+
+ptz = pytz.timezone('America/Los_Angeles')
+utc = pytz.timezone('UTC')
+now = utc.localize(datetime.utcnow())
+Time = str(now.astimezone(ptz))[:-13]
+
+db = InfluxDBClient(host='localhost', port=8086)
+db.switch_database('pv')
+
+json_measurement =  {
+    "measurement": "voltage",
+    "tags": {
+        "sys": "pv",
+        "subsys": "Battery",
+        "subsys2": 'input'
+    },
+    "fields": {
+        "value": 127,
+        "units": 'C'
+    }
+}
+
+json_measurements = [json_measurement]
 
 def update_db(topic, value):
     global intvl_total, intvl_count, last_db_update_time, db
@@ -26,12 +52,20 @@ def update_db(topic, value):
     if int_time - last_db_update_time[topic] > 600: # more than 1 hr
         try:
             hour_value = intvl_total[topic]/intvl_count[topic]
-            new_row="INSERT INTO "+"'"+topic[3:]+"'"+" ('time', 'value') VALUES ({0}, {1:6.2f})".format(int_time, hour_value)
-            #print(new_row)
-            cursor=db.cursor()
-            rc=cursor.execute(new_row)
-            db.commit()
-            cursor.close()
+            #print (topic,hour_value) 
+            now = utc.localize(datetime.utcnow())
+            Time = str(now.astimezone(ptz))[:-13]
+            tags = topic.split('/')
+            
+            measure = tags[3]
+            json_measurement['measurement'] = measure
+            json_measurement['fields']['value'] = value
+            json_measurement['fields']['units'] = 'C'
+            json_measurement['tags']['sys'] = tags[0]
+            json_measurement['tags']['subsys'] = tags[1]
+            print (json_measurement)
+            db.write_points(json_measurements)
+
         except:
             print ("Error updating db")
         #note we reset regardless of db update success, so that eventual success will have one hr total
@@ -60,7 +94,7 @@ client.on_publish = on_publish
 client.username_pw_set(username='mosq', password='1947nw')
 client.connect("127.0.0.1", 1883, 60) 
 
-battery_input_scale = {'v_scale':228.25, 'v_offset':0.0,'i_scale':37.7, 'i_offset':-0.0001}
+battery_input_scale = {'v_scale':228.25, 'v_offset':0.0,'i_scale':36.0, 'i_offset':-0.0001}
 battery_input_prefix = 'pv/battery/input/'
 battery_input_ipaddr = '192.168.1.140'
 
@@ -111,12 +145,12 @@ def process_sensor(ipaddr, prefix, scale):
                 elif 'current' in item:
                     label=prefix+'current'
                     scaled_value = (value-scale['i_offset'])*scale['i_scale']
-                print(label, value, scaled_value)
+                #print(label, value, scaled_value)
                 try:
                     rc = client.publish(label, scaled_value)
                 except:
                     print("error posting measurement, skipping", label, scaled_value)
-                update_db(label, value)
+                update_db(label, scaled_value)
             except:
                 print ("error processing ", ipaddr, item, data)
 
