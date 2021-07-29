@@ -45,7 +45,7 @@ def update_db(topic, value):
         intvl_total[topic] = 0.0 # start new accumulator
         intvl_count[topic] = 0
         last_db_update_time[topic] = time.time() - 601 # because this measurement not in last update
-    
+        print (topic, intvl_total.keys())
     intvl_total[topic] += value
     intvl_count[topic] += 1
     int_time = int(time.time())
@@ -63,6 +63,7 @@ def update_db(topic, value):
             json_measurement['fields']['units'] = 'C'
             json_measurement['tags']['sys'] = tags[0]
             json_measurement['tags']['subsys'] = tags[1]
+            json_measurement['tags']['subsys2'] = tags[2]
             print (json_measurement)
             db.write_points(json_measurements)
 
@@ -145,7 +146,7 @@ def process_sensor(ipaddr, prefix, scale):
                 elif 'current' in item:
                     label=prefix+'current'
                     scaled_value = (value-scale['i_offset'])*scale['i_scale']
-                #print(label, value, scaled_value)
+                print(label, value, scaled_value)
                 try:
                     rc = client.publish(label, scaled_value)
                 except:
