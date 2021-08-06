@@ -64,7 +64,7 @@ def update_db(topic, value):
             json_measurement['tags']['sys'] = tags[0]
             json_measurement['tags']['subsys'] = tags[1]
             json_measurement['tags']['subsys2'] = tags[2]
-            print (json_measurement)
+            #print (json_measurement)
             db.write_points(json_measurements)
 
         except:
@@ -84,6 +84,10 @@ def on_connect(client, userdata, flags, rc):
     else:
         print(f"MQTT connect fail with code {rc}")
 
+def on_disconnect(client, userdata, rc):
+    print ("disconnect", rc)
+    client.reconnect()
+
 def on_publish(client,userdata,result):             #create function for callback
     #print("data published ", result)
     pass
@@ -92,6 +96,7 @@ client = mqtt.Client()
 client.on_connect = on_connect
 client.on_message = new_msg
 client.on_publish = on_publish
+client.on_disconnect = on_disconnect
 client.username_pw_set(username='mosq', password='1947nw')
 client.connect("127.0.0.1", 1883, 60) 
 
@@ -146,7 +151,7 @@ def process_sensor(ipaddr, prefix, scale):
                 elif 'current' in item:
                     label=prefix+'current'
                     scaled_value = (value-scale['i_offset'])*scale['i_scale']
-                print(label, value, scaled_value)
+                #print(label, value, scaled_value)
                 try:
                     rc = client.publish(label, scaled_value)
                 except:
