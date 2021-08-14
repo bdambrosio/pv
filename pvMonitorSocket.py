@@ -1,5 +1,5 @@
 import machine
-from machine import Pin, I2C
+from machine import Pin, I2C, WDT
 import utime
 import ujson as json
 import uio
@@ -20,7 +20,7 @@ try:
     ntptime.settime() # set the rtc datetime from the remote server
 except:
     print("ntptime failure")
-
+wdt = WDT(timeout=32000)
 #I2c to talk to Adafruit ADC
 i2c = machine.I2C(scl=Pin(5), sda=Pin(4) )   # create and init as a master
 
@@ -88,16 +88,16 @@ while True:
         s.settimeout(1)
         _jsonScale = cl.recv(256)
         # print("received", _jsonScale)
-        _scale = json.loads(_jsonScale)
+        #_scale = json.loads(_jsonScale)
     except:
         print("failed to get scale")
         _scale = default_scale
-    if _jsonScale is None:
-        print("timeout on scale recv, wlan down")
-        s.close()
-        checkWlan()
-        s=makeSocket()
-        continue
+    #if _jsonScale is None:
+    #    print("timeout on scale recv, wlan down")
+    #    s.close()
+    #    checkWlan()
+    #    s=makeSocket()
+    #    continue
 
     #got scale, now get raw measurements, scale, and report back
     v = -1.0
@@ -120,7 +120,6 @@ while True:
     #publish readings via mqtt and store in table
     jsonVolts['value'] = volts
     jsonAmps['value'] = amps
-
     try:
         s.settimeout(3)
         cl.send(json.dumps(measurements))
@@ -130,5 +129,6 @@ while True:
         checkWlan()
         s=makeSocket()
 
+    wdt.feed()
     gc.collect()
     # print('Initial free: {} allocated: {}'.format(gc.mem_free(), gc.mem_alloc()))
