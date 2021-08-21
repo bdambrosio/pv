@@ -36,17 +36,21 @@ json_measurement =  {
     }
 }
 
-charging = False
+charging = True
 def start_charging():
+    global charging
     try:
         rc = client.publish('cmnd/SP101/Power', 'ON')
+        print("starting charging", rc)
         charging = True
     except:
         print ("error starting charging")
 
 def stop_charging():
+    global charging
     try:
         rc = client.publish('cmnd/SP101/Power', 'OFF')
+        print('stopping charging', rc)
         charging = False
     except:
         print ("error stopping charging")
@@ -56,7 +60,7 @@ last_battery_I_in = 0
 last_battery_I_in_time = utc.localize(datetime.utcnow())
 
 def update_db(topic, value):
-    global intvl_total, intvl_count, last_db_update_time, db, last_battery_I_in, last_battery_I_in_time
+    global intvl_total, intvl_count, last_db_update_time, db, last_battery_I_in, last_battery_I_in_time, charging
 
     if not topic in intvl_total.keys():
         intvl_total[topic] = 0.0 # start new accumulator
@@ -85,15 +89,16 @@ def update_db(topic, value):
             db.write_points(json_measurements)
 
             # charger control
-            print("measure", measure, tags[1], tags[2])
+            #print("measure", measure, tags[1], tags[2], value)
             if measure == 'current' and tags[1] == 'battery' and tags[2] == 'input':
-                print("recording battery input current", value)
+                #print("recording battery input current", value)
                 last_battery_I_in == value
                 last_battery_I_in_time = now
             if ((measure == 'voltage' and value < 50)
-                and last_battery_I_in_time > now-100 and battery_I_in < 3) and not charging:
+                and (now-last_battery_I_in_time < datetime.timedelta(minutes=20))
+                and battery_I_in < 3 and not charging):
                 start_charging()
-            elif ((measure == 'voltage' and value > 52) and charging:
+            elif (measure == 'voltage' and value > 52) and charging:
                 stop_charging()
             
         except:
