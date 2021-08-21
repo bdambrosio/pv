@@ -36,10 +36,27 @@ json_measurement =  {
     }
 }
 
+charging = False
+def start_charging():
+    try:
+        rc = client.publish('cmnd/SP101/Power', 'ON')
+        charging = True
+    except:
+        print ("error starting charging")
+
+def stop_charging():
+    try:
+        rc = client.publish('cmnd/SP101/Power', 'OFF')
+        charging = False
+    except:
+        print ("error stopping charging")
+    
 json_measurements = [json_measurement]
+last_battery_I_in = 0
+last_battery_I_in_time = utc.localize(datetime.utcnow())
 
 def update_db(topic, value):
-    global intvl_total, intvl_count, last_db_update_time, db
+    global intvl_total, intvl_count, last_db_update_time, db, last_battery_I_in, last_battery_I_in_time
 
     if not topic in intvl_total.keys():
         intvl_total[topic] = 0.0 # start new accumulator
@@ -49,7 +66,7 @@ def update_db(topic, value):
     intvl_total[topic] += value
     intvl_count[topic] += 1
     int_time = int(time.time())
-    if int_time - last_db_update_time[topic] > 600: # more than 1 hr
+    if int_time - last_db_update_time[topic] > 600: # more than 10 min
         try:
             hour_value = intvl_total[topic]/intvl_count[topic]
             #print (topic,hour_value) 
@@ -67,6 +84,18 @@ def update_db(topic, value):
             #print (json_measurement)
             db.write_points(json_measurements)
 
+            # charger control
+            print("measure", measure, tags[1], tags[2])
+            if measure == 'current' and tags[1] == 'battery' and tags[2] == 'input':
+                print("recording battery input current", value)
+                last_battery_I_in == value
+                last_battery_I_in_time = now
+            if ((measure == 'voltage' and value < 50)
+                and last_battery_I_in_time > now-100 and battery_I_in < 3) and not charging:
+                start_charging()
+            elif ((measure == 'voltage' and value > 52) and charging:
+                stop_charging()
+            
         except:
             print ("Error updating db")
         #note we reset regardless of db update success, so that eventual success will have one hr total
