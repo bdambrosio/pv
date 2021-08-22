@@ -8,6 +8,7 @@ from influxdb import InfluxDBClient
 import sys
 from time import ctime
 from datetime import datetime
+from datetime import timedelta
 import pytz
 import math
 
@@ -56,11 +57,11 @@ def stop_charging():
         print ("error stopping charging")
     
 json_measurements = [json_measurement]
-last_battery_I_in = 0
-last_battery_I_in_time = utc.localize(datetime.utcnow())
+last_battery_Iin = 0
+last_battery_Iin_time = utc.localize(datetime.utcnow())
 
 def update_db(topic, value):
-    global intvl_total, intvl_count, last_db_update_time, db, last_battery_I_in, last_battery_I_in_time, charging
+    global intvl_total, intvl_count, last_db_update_time, db, last_battery_Iin, last_battery_Iin_time, charging
 
     if not topic in intvl_total.keys():
         intvl_total[topic] = 0.0 # start new accumulator
@@ -70,15 +71,34 @@ def update_db(topic, value):
     intvl_total[topic] += value
     intvl_count[topic] += 1
     int_time = int(time.time())
+    now = utc.localize(datetime.utcnow())
+    Time = str(now.astimezone(ptz))[:-13]
+    tags = topic.split('/')
+    measure = tags[3]
+
+    try:
+        # charger control
+        if measure == 'current' and tags[1] == 'battery' and tags[2] == 'input':
+            #print("recording battery input current", value)
+            last_battery_Iin == value
+            last_battery_Iin_time = now
+        
+        #print("measure", measure, tags[1], tags[2], value, now - last_battery_Iin_time,
+        #      timedelta(minutes=20), last_battery_Iin)
+        if ((measure == 'voltage' and value < 51)
+            and (now-last_battery_Iin_time < timedelta(minutes=20))
+            and last_battery_Iin < 4):
+            start_charging()
+        elif (measure == 'voltage' and value > 53.99) and charging:
+            stop_charging()
+    except:
+        print("error in charger rule execution")
+
+    # update database
     if int_time - last_db_update_time[topic] > 600: # more than 10 min
         try:
             hour_value = intvl_total[topic]/intvl_count[topic]
-            #print (topic,hour_value) 
-            now = utc.localize(datetime.utcnow())
-            Time = str(now.astimezone(ptz))[:-13]
-            tags = topic.split('/')
             
-            measure = tags[3]
             json_measurement['measurement'] = measure
             json_measurement['fields']['value'] = value
             json_measurement['fields']['units'] = 'C'
@@ -87,21 +107,6 @@ def update_db(topic, value):
             json_measurement['tags']['subsys2'] = tags[2]
             #print (json_measurement)
             db.write_points(json_measurements)
-
-            # charger control
-            #print("measure", measure, tags[1], tags[2], value)
-            if measure == 'current' and tags[1] == 'battery' and tags[2] == 'input':
-                #print("recording battery input current", value)
-                last_battery_I_in == value
-                last_battery_I_in_time = now
-
-            if ((measure == 'voltage' and value < 51)
-                and (now-last_battery_I_in_time < datetime.timedelta(minutes=20))
-                and battery_I_in < 3):
-                start_charging()
-            elif (measure == 'voltage' and value > 53.99) and charging:
-                stop_charging()
-            
         except:
             print ("Error updating db")
         #note we reset regardless of db update success, so that eventual success will have one hr total
