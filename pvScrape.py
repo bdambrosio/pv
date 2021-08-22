@@ -94,11 +94,12 @@ def update_db(topic, value):
                 #print("recording battery input current", value)
                 last_battery_I_in == value
                 last_battery_I_in_time = now
-            if ((measure == 'voltage' and value < 50)
+
+            if ((measure == 'voltage' and value < 51)
                 and (now-last_battery_I_in_time < datetime.timedelta(minutes=20))
-                and battery_I_in < 3 and not charging):
+                and battery_I_in < 3):
                 start_charging()
-            elif (measure == 'voltage' and value > 52) and charging:
+            elif (measure == 'voltage' and value > 53.99) and charging:
                 stop_charging()
             
         except:
@@ -134,11 +135,11 @@ client.on_disconnect = on_disconnect
 client.username_pw_set(username='mosq', password='1947nw')
 client.connect("127.0.0.1", 1883, 60) 
 
-battery_input_scale = {'v_scale':228.25, 'v_offset':0.0,'i_scale':36.0, 'i_offset':-0.0001}
+battery_input_scale = {'v_scale':228.25, 'v_offset':0.0,'i_scale':30.0, 'i_offset':-0.0001}
 battery_input_prefix = 'pv/battery/input/'
 battery_input_ipaddr = '192.168.1.140'
 
-battery_output_scale = {'v_scale':122.5, 'v_offset':0.0,'i_scale':72, 'i_offset':0.0}
+battery_output_scale = {'v_scale':122.5, 'v_offset':0.0,'i_scale':60, 'i_offset':0.0}
 battery_output_prefix ='pv/battery/output/'
 battery_output_ipaddr =  '192.168.1.103'
 
