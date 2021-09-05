@@ -8,6 +8,7 @@ from influxdb import InfluxDBClient
 import sys
 from time import ctime
 from datetime import datetime
+from datetime import timedelta
 import pytz
 import math
 
@@ -36,10 +37,31 @@ json_measurement =  {
     }
 }
 
+charging = True
+def start_charging():
+    global charging
+    try:
+        rc = client.publish('cmnd/SP101/Power', 'ON')
+        print("starting charging", rc)
+        charging = True
+    except:
+        print ("error starting charging")
+
+def stop_charging():
+    global charging
+    try:
+        rc = client.publish('cmnd/SP101/Power', 'OFF')
+        print('stopping charging', rc)
+        charging = False
+    except:
+        print ("error stopping charging")
+    
 json_measurements = [json_measurement]
+last_battery_Iin = 0
+last_battery_Iin_time = utc.localize(datetime.utcnow())
 
 def update_db(topic, value):
-    global intvl_total, intvl_count, last_db_update_time, db
+    global intvl_total, intvl_count, last_db_update_time, db, last_battery_Iin, last_battery_Iin_time, charging
 
     if not topic in intvl_total.keys():
         intvl_total[topic] = 0.0 # start new accumulator
@@ -49,15 +71,34 @@ def update_db(topic, value):
     intvl_total[topic] += value
     intvl_count[topic] += 1
     int_time = int(time.time())
-    if int_time - last_db_update_time[topic] > 600: # more than 1 hr
+    now = utc.localize(datetime.utcnow())
+    Time = str(now.astimezone(ptz))[:-13]
+    tags = topic.split('/')
+    measure = tags[3]
+
+    try:
+        # charger control
+        if measure == 'current' and tags[1] == 'battery' and tags[2] == 'input':
+            #print("recording battery input current", value)
+            last_battery_Iin == value
+            last_battery_Iin_time = now
+        
+        #print("measure", measure, tags[1], tags[2], value, now - last_battery_Iin_time,
+        #      timedelta(minutes=20), last_battery_Iin)
+        if ((measure == 'voltage' and value < 51)
+            and (now-last_battery_Iin_time < timedelta(minutes=20))
+            and last_battery_Iin < 4):
+            start_charging()
+        elif (measure == 'voltage' and value > 53.99) and charging:
+            stop_charging()
+    except:
+        print("error in charger rule execution")
+
+    # update database
+    if int_time - last_db_update_time[topic] > 600: # more than 10 min
         try:
             hour_value = intvl_total[topic]/intvl_count[topic]
-            #print (topic,hour_value) 
-            now = utc.localize(datetime.utcnow())
-            Time = str(now.astimezone(ptz))[:-13]
-            tags = topic.split('/')
             
-            measure = tags[3]
             json_measurement['measurement'] = measure
             json_measurement['fields']['value'] = value
             json_measurement['fields']['units'] = 'C'
@@ -66,7 +107,6 @@ def update_db(topic, value):
             json_measurement['tags']['subsys2'] = tags[2]
             #print (json_measurement)
             db.write_points(json_measurements)
-
         except:
             print ("Error updating db")
         #note we reset regardless of db update success, so that eventual success will have one hr total
@@ -100,11 +140,11 @@ client.on_disconnect = on_disconnect
 client.username_pw_set(username='mosq', password='1947nw')
 client.connect("192.168.1.117", 1883, 60) 
 
-battery_input_scale = {'v_scale':228.25, 'v_offset':0.0,'i_scale':36.0, 'i_offset':-0.0001}
+battery_input_scale = {'v_scale':228.25, 'v_offset':0.0,'i_scale':30.0, 'i_offset':-0.0001}
 battery_input_prefix = 'pv/battery/input/'
 battery_input_ipaddr = '192.168.1.140'
 
-battery_output_scale = {'v_scale':122.5, 'v_offset':0.0,'i_scale':72, 'i_offset':0.0}
+battery_output_scale = {'v_scale':122.5, 'v_offset':0.0,'i_scale':60, 'i_offset':0.0}
 battery_output_prefix ='pv/battery/output/'
 battery_output_ipaddr =  '192.168.1.103'
 
