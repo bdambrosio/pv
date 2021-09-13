@@ -20,7 +20,7 @@ try:
     ntptime.settime() # set the rtc datetime from the remote server
 except:
     print("ntptime failure")
-wdt = WDT(timeout=32000)
+#wdt = WDT()
 #I2c to talk to Adafruit ADC
 i2c = machine.I2C(scl=Pin(5), sda=Pin(4) )   # create and init as a master
 
@@ -30,12 +30,11 @@ aadc = ads1x15.ADS1115(i2c,72,4)
 _time = rtc.datetime()
 
 def checkWlan():
-    if not wlan.isconnected():
-        while not wlan.connect():
-            try:
-                wlan.connect()
-            except:
-                pass
+    while not wlan.isconnected():
+        try:
+            wlan.connect()
+        except:
+            pass
 
 #get network object so we can check connection status
 wlan = network.WLAN(network.STA_IF);
@@ -75,11 +74,6 @@ while True:
     except:
         pass
     if cl is None:
-        if not wlan.isconnected():
-            print("timeout on accept, wlan down")
-            s.close()
-            checkWlan()
-            s=makeSocket()
         continue
     #new connection, try to get scale and report data
     #don't actually use scale locally anymore, but code left incase we add server->sensor info later
@@ -129,6 +123,6 @@ while True:
         checkWlan()
         s=makeSocket()
 
-    wdt.feed()
+    #wdt.feed()
     gc.collect()
     # print('Initial free: {} allocated: {}'.format(gc.mem_free(), gc.mem_alloc()))

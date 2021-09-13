@@ -138,7 +138,7 @@ client.on_message = new_msg
 client.on_publish = on_publish
 client.on_disconnect = on_disconnect
 client.username_pw_set(username='mosq', password='1947nw')
-client.connect("127.0.0.1", 1883, 60) 
+client.connect("192.168.1.117", 1883, 60) 
 
 battery_input_scale = {'v_scale':228.4, 'v_offset':0.0,'i_scale':30.0, 'i_offset':0.0001}
 battery_input_prefix = 'pv/battery/input/'
