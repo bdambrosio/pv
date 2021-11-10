@@ -85,12 +85,16 @@ def update_db(topic, value):
         
         #print("measure", measure, tags[1], tags[2], value, now - last_battery_Iin_time,
         #      timedelta(minutes=20), last_battery_Iin)
-        if ((measure == 'voltage' and value < 51)
+
+        # emergency rule to turn on ac charger if battery voltage low
+        # and no input current. reason for timedelta is to make sure
+        # battery in sensor is actually reporting.
+        if ((measure == 'voltage' and value < 48)
             and (now-last_battery_Iin_time < timedelta(minutes=20))
-            and last_battery_Iin < 4):
+            and last_battery_Iin < 3):
             start_charging()
-        elif (measure == 'voltage' and value > 53.99) and charging:
-            stop_charging()
+        #elif (measure == 'voltage' and value > 53.99) and charging:
+        #    stop_charging()
     except:
         print("error in charger rule execution")
 
