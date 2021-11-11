@@ -144,11 +144,11 @@ client.on_disconnect = on_disconnect
 client.username_pw_set(username='mosq', password='1947nw')
 client.connect("192.168.1.117", 1883, 60) 
 
-battery_input_scale = {'v_scale':228.4, 'v_offset':0.0,'i_scale':30.0, 'i_offset':0.0001}
+battery_input_scale = {'v_scale':229.3, 'v_offset':0.0,'i_scale':30.0, 'i_offset':0.0001}
 battery_input_prefix = 'pv/battery/input/'
 battery_input_ipaddr = '192.168.1.140'
 
-battery_output_scale = {'v_scale':122.7, 'v_offset':0.0,'i_scale':72, 'i_offset':-0.004}
+battery_output_scale = {'v_scale':123.2, 'v_offset':0.0,'i_scale':72, 'i_offset':-0.004}
 battery_output_prefix ='pv/battery/output/'
 battery_output_ipaddr =  '192.168.1.103'
 
