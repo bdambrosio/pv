@@ -89,7 +89,7 @@ def update_db(topic, value):
         # emergency rule to turn on ac charger if battery voltage low
         # and no input current. reason for timedelta is to make sure
         # battery in sensor is actually reporting.
-        if ((measure == 'voltage' and value < 48)
+        if ((measure == 'voltage' and value > 10.0 and value < 48)
             and (now-last_battery_Iin_time < timedelta(minutes=20))
             and last_battery_Iin < 3):
             start_charging()
@@ -144,7 +144,8 @@ client.on_disconnect = on_disconnect
 client.username_pw_set(username='mosq', password='1947nw')
 client.connect("192.168.1.117", 1883, 60) 
 
-battery_input_scale = {'v_scale':229.3, 'v_offset':0.0,'i_scale':30.0, 'i_offset':0.0001}
+# note - input now running on ina219 sensor
+battery_input_scale = {'v_scale':0.0, 'v_offset':0.0,'i_scale':0.01777, 'i_offset':0.0001}
 battery_input_prefix = 'pv/battery/input/'
 battery_input_ipaddr = '192.168.1.134'
 
