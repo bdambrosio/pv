@@ -89,7 +89,7 @@ def update_db(topic, value):
         # emergency rule to turn on ac charger if battery voltage low
         # and no input current. reason for timedelta is to make sure
         # battery in sensor is actually reporting.
-        if ((measure == 'voltage' and value > 10.0 and value < 48)
+        if ((measure == 'voltage' and tags[1] == 'battery' and tags[2] == 'output' and value > 10.0 and value < 48)
             and (now-last_battery_Iin_time < timedelta(minutes=20))
             and last_battery_Iin < 3):
             start_charging()
@@ -145,17 +145,17 @@ client.username_pw_set(username='mosq', password='1947nw')
 client.connect("192.168.1.117", 1883, 60) 
 
 # note - input now running on ina219 sensor
-battery_input_scale = {'v_scale':0.0, 'v_offset':0.0,'i_scale':0.01777, 'i_offset':0.0001}
+battery_input_scale = {'v_scale':52.4, 'v_offset':0.0,'i_scale':0.01777, 'i_offset':0.0001}
 battery_input_prefix = 'pv/battery/input/'
-battery_input_ipaddr = '192.168.1.134'
+battery_input_ipaddr = '192.168.1.143'
 
-battery_output_scale = {'v_scale':123.2, 'v_offset':0.0,'i_scale':72, 'i_offset':-0.004}
+battery_output_scale = {'v_scale':0.0001, 'v_offset':1000.0,'i_scale':-0.00004, 'i_offset':288300}
 battery_output_prefix ='pv/battery/output/'
-battery_output_ipaddr =  '192.168.1.103'
+battery_output_ipaddr =  '192.168.1.166'
 
-battery_test_scale = {'v_scale':398.8, 'v_offset':0.0,'i_scale':1425.0, 'i_offset':0.0}
+battery_test_scale = {'v_scale':0.0001, 'v_offset':0.0,'i_scale':-0.00004, 'i_offset':288300}
 battery_test_prefix = 'pv/battery/test/'
-battery_test_ipaddr =  '192.168.1.134'
+battery_test_ipaddr =  '192.168.1.166'
 
 def process_sensor(ipaddr, prefix, scale):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -193,10 +193,11 @@ def process_sensor(ipaddr, prefix, scale):
                 if 'voltage' in item:
                     label=prefix+'voltage'
                     scaled_value = (value-scale['v_offset'])*scale['v_scale']
+                    print(label, value, scaled_value)
                 elif 'current' in item:
                     label=prefix+'current'
                     scaled_value = (value-scale['i_offset'])*scale['i_scale']
-                #print(label, value, scaled_value)
+                    print(label, value, scaled_value)
                 try:
                     rc = client.publish(label, scaled_value)
                 except:
