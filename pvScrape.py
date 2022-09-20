@@ -149,7 +149,7 @@ battery_input_scale = {'v_scale':52.4, 'v_offset':0.0,'i_scale':0.01777, 'i_offs
 battery_input_prefix = 'pv/battery/input/'
 battery_input_ipaddr = '192.168.1.143'
 
-battery_output_scale = {'v_scale':0.00474, 'v_offset':0.0,'i_scale':0.010327, 'i_offset':0}
+battery_output_scale = {'v_scale':0.00473, 'v_offset':0.0,'i_scale':0.010327, 'i_offset':0}
 battery_output_prefix ='pv/battery/output/'
 battery_output_ipaddr =  '192.168.1.174'
 
