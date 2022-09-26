@@ -145,17 +145,17 @@ client.username_pw_set(username='mosq', password='1947nw')
 client.connect("192.168.1.117", 1883, 60) 
 
 # note - input now running on ina219 sensor
-battery_input_scale = {'v_scale':52.4, 'v_offset':0.0,'i_scale':0.01777, 'i_offset':0.0001}
-battery_input_prefix = 'pv/battery/input/'
-battery_input_ipaddr = '192.168.1.143'
+battery_input_scale = {'v_scale':0.003135, 'v_offset':0.0,'i_scale':0.0135, 'i_offset':0}
+battery_input_prefix = 'pv/battery/test/'
+battery_input_ipaddr =  '192.168.1.164'
 
 battery_output_scale = {'v_scale':0.00473, 'v_offset':0.0,'i_scale':0.010327, 'i_offset':0}
 battery_output_prefix ='pv/battery/output/'
 battery_output_ipaddr =  '192.168.1.174'
 
-battery_test_scale = {'v_scale':0.0001, 'v_offset':0.0,'i_scale':0.01032, 'i_offset':0}
+battery_test_scale = {'v_scale':0.003135, 'v_offset':0.0,'i_scale':0.0135, 'i_offset':0}
 battery_test_prefix = 'pv/battery/test/'
-battery_test_ipaddr =  '192.168.1.166'
+battery_test_ipaddr =  '192.168.1.164'
 
 def process_sensor(ipaddr, prefix, scale):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
