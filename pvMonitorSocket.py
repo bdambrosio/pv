@@ -85,7 +85,7 @@ while True:
         #_scale = json.loads(_jsonScale)
     except:
         print("failed to get scale")
-        _scale = default_scale
+        #_scale = default_scale
     #if _jsonScale is None:
     #    print("timeout on scale recv, wlan down")
     #    s.close()

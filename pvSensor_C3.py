@@ -13,7 +13,7 @@ except:
 #    ntptime.settime() # set the rtc datetime from the remote server
 #except:
 #    print("ntptime failure")
-wdt = WDT(timeout=5000)
+wdt = WDT(timeout=8000)
 #I2c to talk to Adafruit ADC
 i2c = machine.SoftI2C(scl=Pin(8), sda=Pin(9) )   # create and init as a master
 print(i2c.scan())
@@ -66,25 +66,24 @@ while True:
         cl, addr = s.accept()
     except:
         pass
-    if cl is None:
-        continue
-    #new connection, try to get scale and report data
-    #don't actually use scale locally anymore, but code left incase we add server->sensor info later
-    _jsonScale = None
-    try:
-        s.settimeout(1)
-        _jsonScale = cl.recv(256)
-        # print("received", _jsonScale)
-        #_scale = json.loads(_jsonScale)
-    except:
-        print("failed to get scale")
-        #_scale = default_scale
-    if _jsonScale is None:
-        print("timeout on scale recv, wlan down")
-        s.close()
-        checkWlan()
-        s=makeSocket()
-        continue
+    if cl is not None:
+        #new connection, try to get scale and report data
+        #don't actually use scale locally anymore, but code left incase we add server->sensor info later
+        _jsonScale = None
+        try:
+            s.settimeout(1)
+            _jsonScale = cl.recv(256)
+            print("received", _jsonScale)
+            _scale = json.loads(_jsonScale)
+        except:
+            print("failed to get scale")
+            _scale = default_scale
+        if _jsonScale is None:
+            print("timeout on scale recv, wlan down")
+            s.close()
+            checkWlan()
+            s=makeSocket()
+            continue
 
     #got scale, now get raw measurements, scale, and report back
     vCnt = 0; v = 0
@@ -120,14 +119,15 @@ while True:
     #publish readings via mqtt and store in table
     jsonVolts['value'] = volts
     jsonAmps['value'] = amps
-    try:
-        s.settimeout(1)
-        cl.send(json.dumps(measurements))
-        cl.close()
-    except:
-        s.close()
-        checkWlan()
-        s=makeSocket()
+    if cl is not None: # ie, if this measuement is requested
+        try:
+            s.settimeout(1)
+            cl.send(json.dumps(measurements))
+            cl.close()
+        except:
+            s.close()
+            checkWlan()
+            s=makeSocket()
     
     wdt.feed()
     # print('Initial free: {} allocated: {}'.format(gc.mem_free(), gc.mem_alloc()))
