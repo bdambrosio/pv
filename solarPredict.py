@@ -79,7 +79,10 @@ if w is not None:
     elif vOut < 51.0:
         soc800am = .1
     yKwh = 3.2 - soc800am*3.2 + 1.6 - batteryKwh
-    chargerStartTime = math.floor(1500-yKwh*5)
+    if yKwh < 0.0:
+        chargerStartTime = -1
+    else:
+        chargerStartTime = math.floor(1500-yKwh*500)
     print("adj vOut: {:.2f}V".format(vOut), "SOC: {:.0f}%".format(soc800am*100), "solar shortfall: {:.1f}Kwh".format(yKwh),
           "start Charger: ", chargerStartTime)
     if abs(iOut - iIn) < 2.0:
