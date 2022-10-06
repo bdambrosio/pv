@@ -13,8 +13,9 @@ from machine import RTC
 #import esp
 #esp.osdebug(None)
 
-ssid = 'BruceJane'
-password = '1947NWnw!'
+ssid = 'BruceJaneAP'
+password='97694083'
+#password = '1947NWnw!'
 
 station = network.WLAN(network.STA_IF)
 
@@ -42,4 +43,4 @@ except:
 startup_time = utime.localtime(utime.mktime(utime.localtime()) - 8*3600)
 
 print(startup_time)
-import pvSensor_C3
+#import pvSensor_C3
