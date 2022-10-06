@@ -5,6 +5,7 @@ import ujson as json
 import network
 #import gc
 import ads1x15
+import sys
 try:
     import usocket as socket
 except:
@@ -23,6 +24,8 @@ aadc = ads1x15.ADS1115(i2c,72,4)
 #_time = rtc.datetime()
 
 def checkWlan():
+    global wlan
+    wlan = network.WLAN(network.STA_IF);
     while not wlan.isconnected():
         try:
             wlan.connect()
@@ -60,6 +63,7 @@ i1 = -1
 i2 = -1
 
 while True:
+  try:
     cl = None
     try:
         s.settimeout(1)
@@ -99,7 +103,7 @@ while True:
             print("error reading voltage")
         utime.sleep_ms(20)
         try:
-            _i = aadc.read(0,0,1)
+            _i = aadc.read(0,3)
             if _i != 0.0:
                 i += _i
                 iCnt += 1
@@ -131,3 +135,6 @@ while True:
     
     wdt.feed()
     # print('Initial free: {} allocated: {}'.format(gc.mem_free(), gc.mem_alloc()))
+  except KeyboardInterrupt:
+	s.close()
+	sys.exit()
