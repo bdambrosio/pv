@@ -1,46 +1,29 @@
 # This file is executed on every boot (including wake-boot from deepsleep)
-
-#try:
-#  import usocket as socket
-#except:
-#  import socket
-
-import uos, machine
 import network
-import utime
-from machine import RTC
+import time
+import micropython
+#ssid = 'BruceJaneAP'
+#password='97694083'
+ssid = 'BruceJane'
+password='1947NWnw!'
 
-#import esp
-#esp.osdebug(None)
-
-ssid = 'BruceJaneAP'
-password='97694083'
-#password = '1947NWnw!'
-
+micropython.kbd_intr(ord('q')) # allow an interrupt before launching app
 station = network.WLAN(network.STA_IF)
-
 station.active(True)
-
 while station.isconnected() == False:
     print ("connecting...")
     try:
         station.connect(ssid, password)
-    except:
-        utime.sleep(.2)
-
-print('Connection successful')
+        time.sleep(.2)
+    except Exception as e:
+        print(e)
+        time.sleep(.2)
 print(station.ifconfig())
-
-# set real-time clock from internet - doesn't work in build 387
-import ntptime
-rtc = RTC()
-
 try:
-    ntptime.settime() # set the rtc datetime from the remote server
-except:
-    print("ntptime failure")
-#example conversion of UTC to local
-startup_time = utime.localtime(utime.mktime(utime.localtime()) - 8*3600)
-
-print(startup_time)
-#import pvSensor_C3
+    micropython.kbd_intr(ord('q')) # allow an interrupt before launching app
+    for i in range(60):
+        print("waiting", (60-i), "secs")
+        time.sleep(1)
+    #import pvSensor_C3
+except KeyboardInterrupt:
+    pass

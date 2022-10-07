@@ -11,20 +11,12 @@ try:
 except:
     import socket
 # set real-time clock from internet
-import ntptime
-from machine import RTC
-
-rtc = RTC()
-try:
-    ntptime.settime() # set the rtc datetime from the remote server
-except:
-    print("ntptime failure")
 #wdt = WDT()
 #I2c to talk to Adafruit ADC
 i2c = machine.I2C(scl=Pin(5), sda=Pin(4) )   # create and init as a master
 print(i2c.scan())
 # 
-ina=ina219 = ina219_chris.INA219(.1, i2c, max_expected_amps=3.19, address= 0x40)
+ina=ina219 = ina219_chris.INA219(.0069, i2c, max_expected_amps=20, address= 0x40)
 
 ina.configure()
 print('v',ina.voltage())
