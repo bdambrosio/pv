@@ -1,16 +1,18 @@
 import machine
-from machine import Pin, I2C, WDT
+from machine import Pin, I2C, UART, WDT, ADC
 import ina219_chris
 import utime
 import ujson as json
 import network
-import gc
+#import gc
 #import micropython
 try:
     import usocket as socket
 except:
     import socket
 # set real-time clock from internet
+
+uart = UART(0, 115200)
 #wdt = WDT()
 #I2c to talk to Adafruit ADC
 i2c = machine.I2C(scl=Pin(5), sda=Pin(4) )   # create and init as a master
@@ -21,7 +23,6 @@ ina=ina219 = ina219_chris.INA219(.0069, i2c, max_expected_amps=20, address= 0x40
 ina.configure()
 print('v',ina.voltage())
 print('i', ina.current())
-_time = rtc.datetime()
 
 def checkWlan():
     while not wlan.isconnected():
@@ -58,6 +59,7 @@ measurements['current'] = jsonAmps
 
 while True:
     cl = None
+    if uart.any() : break
     try:
         s.settimeout(5)
         cl, addr = s.accept()
@@ -93,5 +95,3 @@ while True:
         s=makeSocket()
 
     #wdt.feed()
-    gc.collect()
-    # print('Initial free: {} allocated: {}'.format(gc.mem_free(), gc.mem_alloc()))
