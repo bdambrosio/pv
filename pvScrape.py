@@ -145,13 +145,13 @@ client.username_pw_set(username='mosq', password='1947nw')
 client.connect("192.168.1.117", 1883, 60) 
 
 # note - input now running on ina219 sensor
-battery_input_scale = {'v_scale':0.00319, 'v_offset':0.0,'i_scale':-0.01016, 'i_offset':-305}
+battery_input_scale = {'v_scale':0.0001978, 'v_offset':0.0,'i_scale':0.0200, 'i_offset':0}
 battery_input_prefix = 'pv/battery/input/'
-battery_input_ipaddr =  '192.168.1.164'
+battery_input_ipaddr =  '192.168.1.202'
 
-battery_output_scale = {'v_scale':0.000198, 'v_offset':0.0,'i_scale':0.0047, 'i_offset':0}
+battery_output_scale = {'v_scale':0.004725, 'v_offset':0.0,'i_scale':0.01016, 'i_offset':0}
 battery_output_prefix ='pv/battery/output/'
-battery_output_ipaddr =  '192.168.1.202'
+battery_output_ipaddr =  '192.168.1.206'
 
 battery_test_scale = {'v_scale':0.000198, 'v_offset':0.0,'i_scale':0.0047, 'i_offset':0}
 battery_test_prefix = 'pv/battery/test/'
