@@ -78,6 +78,7 @@ while True:
     except:
         pass
     if cl is None:
+        wdt.feed()
         continue
     #new connection, try to get scale and report data
     #don't actually use scale locally anymore, but code left incase we add server->sensor info later
