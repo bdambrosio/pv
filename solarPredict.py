@@ -4,9 +4,13 @@ import time
 import paho.mqtt.client as mqtt
 import threading
 import math
+import sys
+
 w = None
 iIn = -1.0; iOut = -1.0; vIn = -1.0; vOut = -1.0
-solar_capture_factor = {0:1.0, 1:1.0, 2:0.9, 3:0.8, 4:0.6, 5:0.5, 6:0.6}
+#solar_capture_factor = {0:1.0, 1:1.0, 2:0.9, 3:0.8, 4:0.7, 5:0.6, 6:0.6}
+# new factors since estimate computation now includes cloud cover
+solar_capture_factor = {0:1.0, 1:1.0, 2:0.95, 3:0.9, 4:0.85, 5:0.8, 6:0.8}
 def new_measurement(client, userdata, msg):
     global iIn, iOut, vIn, vOut
     topic = msg.topic
@@ -47,6 +51,9 @@ client.subscribe("pv/battery/input/current")
 current_time = time.localtime()
 str_date = str(current_time.tm_year)+"-"+str(current_time.tm_mon)+"-"+str(current_time.tm_mday)
 
+if len(sys.argv) == 3:
+    str_date = str(current_time.tm_year)+"-" + sys.argv[1] +"-" + sys.argv[2]
+
 print (str_date+":"+str(current_time.tm_hour))
 
 try:
@@ -58,8 +65,11 @@ except:
 if w is not None:
     #print("status: ", w.status_code)
     wJSON = w.json()
+    #print(wJSON)
     expJoules = (wJSON['days'][0]['solarenergy'] * 28/10)   # energy in MJoules/m^2 * m^2 of my panels
     solarKwh = expJoules/3.6                                # 1MJoule = 3.6 Kwh
+    cloudCover = wJSON['days'][0]['cloudcover']
+    # batteryKwh = solarKwh * (1.0-cloudCover/100) * .18     # 20% efficiency panels/solarcharger/batteries - may need to derate in winter.
     batteryKwh = solarKwh * .18     # 20% efficiency panels/solarcharger/batteries - may need to derate in winter.
     month = current_time.tm_mon
     if month <= 6:
