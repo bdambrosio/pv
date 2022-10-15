@@ -13,10 +13,38 @@ dayDischargeRate = .19 # Wh/hr
 #solar_capture_factor = {0:1.0, 1:1.0, 2:0.9, 3:0.8, 4:0.7, 5:0.6, 6:0.6}
 # new factors since estimate computation now includes cloud cover
 solar_capture_factor = {0:1.0, 1:1.0, 2:0.95, 3:0.9, 4:0.85, 5:0.8, 6:0.8}
+
+pvChargerStateValid = False
+pvChargerOn = False
+
+def start_charging():
+    global pvChargerState, pvChargerStateValid
+    try:
+        rc = client.publish('cmnd/SP101/Power', 'ON')
+        print("starting charging", rc)
+        pvChargerState = True
+        pvChargerStateValid = True
+    except:
+        print ("error starting charging")
+
+def stop_charging():
+    global pvChargerState, pvChargerStateValid
+    try:
+        rc = client.publish('cmnd/SP101/Power', 'OFF')
+        print('stopping charging', rc)
+        pvChargerState = False
+        pvChargerStateValid = True
+    except:
+        print ("error stopping charging")
+
 def new_measurement(client, userdata, msg):
-    global iIn, iOut, vIn, vOut
+    global iIn, iOut, vIn, vOut, pvChargerState, pvChargerStateValid
     topic = msg.topic
     measurement = json.loads(msg.payload)
+    if 'SP101' in topic:
+        pvChargerState = (measurement["POWER"] == 'ON')
+        pvChargerStateValid = True
+        return
     # print(topic, measurement)
     if 'output' in topic:
         if 'current' in topic:
@@ -28,6 +56,7 @@ def new_measurement(client, userdata, msg):
             iIn = measurement
         else:
             vIn = measurement
+
 
     
 # start mqtt client
@@ -51,6 +80,7 @@ client.subscribe('pv/battery/output/voltage')
 client.subscribe("pv/battery/output/current")
 client.subscribe('pv/battery/input/voltage')
 client.subscribe("pv/battery/input/current")
+client.subscribe('stat/SP101/RESULT')
 
 current_time = time.localtime()
 str_date = str(current_time.tm_year)+"-"+str(current_time.tm_mon)+"-"+str(current_time.tm_mday)
@@ -81,7 +111,7 @@ if w is not None:
     month = abs(month-6)
     cf = solar_capture_factor[month]
     batteryKwhAdj = batteryKwh * cf
-    solarDayLeft = 1.0 - (max(0.0, min(current_time.tm_hour-10, 6)))/6.0
+    solarDayLeft = 1.0 - (max(0.0, min(current_time.tm_hour-10+(1-current_time.tm_min/60.0), 6)))/6.0
     print("solarDayLeft:{:.0f}%".format(solarDayLeft*100))
     batteryKwhAdj2 = batteryKwhAdj*solarDayLeft
     print("cost ", wJSON['queryCost'], 'solar radiation', wJSON['days'][0]['solarradiation'], 'energy', wJSON['days'][0]['solarenergy'], "mJoules: ", "{:.1f}".format(expJoules), "solarKwh: {:.1f}".format(solarKwh),
@@ -90,7 +120,7 @@ if w is not None:
     #mqtt_thread = threading.Thread(target=MQTT_Msgs)
     #mqtt_thread.start()
     # iIn can occasionally be slightly negative at night
-    while (vOut < 0.0 or iIn < - 0.9) and time.time() - startTime < 120:
+    while (vOut < 0.0 or vIn < 0.0 or iOut < -.5 or iIn < - 0.9) and time.time() - startTime < 120:
        client.loop()
        time.sleep(.2)
     if (time.time()-startTime) >= 120:
@@ -133,7 +163,7 @@ if w is not None:
     print("deficit now: {:.2f}".format(3.2-soc*3.2), "expected draw: {:.2f}".format(expDraw), "solarCharge today: {:.1f}".format(batteryKwhAdj), "solarCharge remaining: {:.1f}".format(batteryKwhAdj2), "chg needed: {:.2f}".format(yKwh))
 
     if yKwh < 0.0:
-        chargerStartHour = -1
+        chargerStartHour = 99
     else:
         chargerStartHour = math.floor(15-yKwh*5)
     #print("expected draw till 16:00: {:.1f}".format(max(0.0, expDraw+dayDischargeRate)), 'total chg needed (yKwh): {:.2f}'.format(yKwh))
@@ -142,3 +172,18 @@ if w is not None:
         print("hi charge or discharge rate, net: {:.1f}, estimate unreliable".format( abs(iOut-iIn)))
 
     print("\nbattery projected 8am (no chrger, just solar) Kwh: {:.2f}".format(bKwh8amSolarOnly),"SOC: {:.0f}%".format(bKwh8amSolarOnly/3.2*100.0))
+
+    rc = client.publish('cmnd/SP101/Power')
+
+    while not pvChargerStateValid and time.time() - startTime < 120:
+       client.loop()
+       time.sleep(.2)
+    if (time.time()-startTime) >= 120:
+        print("\n*** timeout waiting for pv charger state ***\n")
+    else:
+        print("pvChargerState:", pvChargerState, current_time.tm_hour, chargerStartHour)
+        if (current_time.tm_hour < 15 and chargerStartHour <= current_time.tm_hour):
+            start_charging()
+        else:
+            stop_charging()
+            
