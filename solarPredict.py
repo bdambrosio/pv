@@ -8,6 +8,8 @@ import sys
 
 w = None
 iIn = -1.0; iOut = -1.0; vIn = -1.0; vOut = -1.0
+sleepDischargeRate = .075 # Wh/hr
+dayDischargeRate = .19 # Wh/hr
 #solar_capture_factor = {0:1.0, 1:1.0, 2:0.9, 3:0.8, 4:0.7, 5:0.6, 6:0.6}
 # new factors since estimate computation now includes cloud cover
 solar_capture_factor = {0:1.0, 1:1.0, 2:0.95, 3:0.9, 4:0.85, 5:0.8, 6:0.8}
@@ -37,6 +39,8 @@ def on_connect(client, userdata, flags, rc):
         print(f"\nMQTT connect fail with code {rc}")
 
 #print("New MQQT session being set up")
+# init mqtt values to -1 so we know when we have all
+vOut = -1.0; vIn = -1.0; iIn = -1.0; iOut = -1.0
 client = mqtt.Client() 
 client.on_connect = on_connect
 client.on_message = new_measurement
@@ -81,20 +85,22 @@ if w is not None:
     print("solarDayLeft:{:.0f}%".format(solarDayLeft*100))
     batteryKwhAdj2 = batteryKwhAdj*solarDayLeft
     print("cost ", wJSON['queryCost'], 'solar radiation', wJSON['days'][0]['solarradiation'], 'energy', wJSON['days'][0]['solarenergy'], "mJoules: ", "{:.1f}".format(expJoules), "solarKwh: {:.1f}".format(solarKwh),
-         "solarKwhAvailable:", "{:.1f}".format(batteryKwhAdj2))
+         "pvKwhAvailable:", "{:.1f}".format(batteryKwhAdj2))
     startTime = time.time()
-    vOut = -1.0; vIn = -1.0
     #mqtt_thread = threading.Thread(target=MQTT_Msgs)
     #mqtt_thread.start()
-    while (vOut < 0.0 or iIn < -.9 or iOut < 0.0) and time.time() - startTime < 120:
+    # iIn can occasionally be slightly negative at night
+    while (vOut < 0.0 or iIn < - 0.9) and time.time() - startTime < 120:
        client.loop()
        time.sleep(.2)
-    
+    if (time.time()-startTime) >= 120:
+        print("\n*** timeout waiting for pv sensor data ***\n")
     # goal is to be at full chg by 4pm (end of solar),
     # turning on charger early enough that we can turn it off before 3pm peak rates
     # = soc800am - 1600wh (8:00-16:00 shop draw) + (exp charge from solar) + (charge from charger)
+
     #Below estimates net i=0 voltage based on net current draw/chg
-    vOut = vOut + (iOut-iIn)*.075   # voltage drop per amp - calibrated when net draw
+    vOut = (vIn+vOut)/2.0 + (iOut-iIn)*.09   # voltage drop per amp - calibrated when net draw
     print("PV vIn: {:.2f}V".format(vIn), "vOut(Adj): {:.2f}V".format(vOut),"iIn: {:.2f}A".format(iIn), "iOut: {:.2f}A".format(iOut))
     soc = 0
     #soc800am = ((vOut-51.2)*25 + 20)/100 # obsolete linear approximation
@@ -112,12 +118,14 @@ if w is not None:
     elif vOut < 51.2:
         soc = .1
 
-    # 100 W till 8am, 175W till 8pm (but only count till 3pm, rates rise)
+    # sleepDischargeRage W till 8am, dayDischargeRate 8am - 8pm (but only count till 3pm, rates rise)
     expDraw = 0.0
     if current_time.tm_hour < 15:
-        expDraw = (15-current_time.tm_hour)*0.1  + max(0.0, ((15 - max(current_time.tm_hour,8))*0.15))
-    
-    yKwh = ((3.2 - soc*3.2) + expDraw   # charge needed to get to 100% now + additional drain till 3pm
+        expDraw = (15-current_time.tm_hour)*sleepDischargeRate
+        + max(0.0, ((15 - max(current_time.tm_hour,8))*dayDischargeRate))
+
+    # target is 90% SOC
+    yKwh = ((2.9 - soc*3.2) + expDraw   # charge needed to get to 90% now + additional drain till 3pm
             - batteryKwhAdj2)            # expected from solar
     #print("adj vOut: {:.2f}V".format(vOut), "SOC: {:.0f}%".format(soc*100), "solar shortfall: {:.1f}Kwh".format(yKwh))
     bKwh8amNoChg = soc*3.2 - (24-current_time.tm_hour)*0.1 - max(0.0, (20 - current_time.tm_hour)*0.15)
@@ -128,9 +136,9 @@ if w is not None:
         chargerStartHour = -1
     else:
         chargerStartHour = math.floor(15-yKwh*5)
-    print("expected draw till 16:00: {:.1f}".format(max(0.0,(16-current_time.tm_hour)*.16)), 'total chg needed (yKwh): {:.2f}'.format(yKwh))
+    #print("expected draw till 16:00: {:.1f}".format(max(0.0, expDraw+dayDischargeRate)), 'total chg needed (yKwh): {:.2f}'.format(yKwh))
     print("SOC: {:.0f}%".format(soc*100), "solar shortfall: {:.1f}Kwh".format(yKwh),"start Charger: {:2d}:00".format(chargerStartHour))
     if abs(iOut - iIn) > 2.0:
-        print("hi charge or discharge rate: {:.1f}, estimate unreliable".format( abs(iOut-iIn)))
+        print("hi charge or discharge rate, net: {:.1f}, estimate unreliable".format( abs(iOut-iIn)))
 
-    print("\nbattery projected 8am Kwh: {:.2f}".format(bKwh8amSolarOnly),"SOC: {:.0f}%".format(bKwh8amSolarOnly/3.2*100.0))
+    print("\nbattery projected 8am (no chrger, just solar) Kwh: {:.2f}".format(bKwh8amSolarOnly),"SOC: {:.0f}%".format(bKwh8amSolarOnly/3.2*100.0))
