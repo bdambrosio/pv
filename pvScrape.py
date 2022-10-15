@@ -104,7 +104,7 @@ def update_db(topic, value):
             hour_value = intvl_total[topic]/intvl_count[topic]
             
             json_measurement['measurement'] = measure
-            json_measurement['fields']['value'] = value
+            json_measurement['fields']['value'] = hour_value
             json_measurement['fields']['units'] = 'C'
             json_measurement['tags']['sys'] = tags[0]
             json_measurement['tags']['subsys'] = tags[1]
@@ -149,7 +149,7 @@ battery_input_scale = {'v_scale':0.0001978, 'v_offset':0.0,'i_scale':0.049, 'i_o
 battery_input_prefix = 'pv/battery/input/'
 battery_input_ipaddr =  '192.168.1.202'
 
-battery_output_scale = {'v_scale':0.00472, 'v_offset':0.0,'i_scale':0.01478, 'i_offset':0}
+battery_output_scale = {'v_scale':0.00472, 'v_offset':0.0,'i_scale':0.0107, 'i_offset':0}
 #battery_output_scale = {'v_scale':0.00626, 'v_offset':0.0,'i_scale':0.01016, 'i_offset':0}
 battery_output_prefix ='pv/battery/output/'
 battery_output_ipaddr =  '192.168.1.206'
