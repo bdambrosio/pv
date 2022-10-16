@@ -111,7 +111,7 @@ if w is not None:
     month = abs(month-6)
     cf = solar_capture_factor[month]
     batteryKwhAdj = batteryKwh * cf
-    solarDayLeft = 1.0-max(0.0, min((current_time.tm_hour-10), 6)/6.0) - current_time.tm_min/60.0
+    solarDayLeft = 1.0-max(0.0, min((current_time.tm_hour-10), 6)/6.0) - (current_time.tm_min/60.0)/6.0
     print("solarDayLeft:{:.0f}%".format(solarDayLeft*100))
     batteryKwhAdj2 = batteryKwhAdj*solarDayLeft
     print("cost ", wJSON['queryCost'], 'solar radiation', wJSON['days'][0]['solarradiation'], 'energy', wJSON['days'][0]['solarenergy'], "mJoules: ", "{:.1f}".format(expJoules), "solarKwh: {:.1f}".format(solarKwh),
