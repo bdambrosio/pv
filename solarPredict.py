@@ -111,7 +111,7 @@ if w is not None:
     month = abs(month-6)
     cf = solar_capture_factor[month]
     batteryKwhAdj = batteryKwh * cf
-    solarDayLeft = 1.0 - (max(0.0, min(current_time.tm_hour-10+(1-current_time.tm_min/60.0), 6)))/6.0
+    solarDayLeft = 1.0-max(0.0, min((current_time.tm_hour-10), 6)/6.0) - current_time.tm_min/60.0
     print("solarDayLeft:{:.0f}%".format(solarDayLeft*100))
     batteryKwhAdj2 = batteryKwhAdj*solarDayLeft
     print("cost ", wJSON['queryCost'], 'solar radiation', wJSON['days'][0]['solarradiation'], 'energy', wJSON['days'][0]['solarenergy'], "mJoules: ", "{:.1f}".format(expJoules), "solarKwh: {:.1f}".format(solarKwh),
@@ -130,22 +130,27 @@ if w is not None:
     # = soc800am - 1600wh (8:00-16:00 shop draw) + (exp charge from solar) + (charge from charger)
 
     #Below estimates net i=0 voltage based on net current draw/chg
-    vOut = (vIn+vOut)/2.0 + (iOut-iIn)*.09   # voltage drop per amp - calibrated when net draw
-    print("PV vIn: {:.2f}V".format(vIn), "vOut(Adj): {:.2f}V".format(vOut),"iIn: {:.2f}A".format(iIn), "iOut: {:.2f}A".format(iOut))
+    # vOut swings less with iIn, so weight that more heavily...
+    vEst = (vIn/2+vOut)/1.5
+    if (iIn - iOut) > 0:
+        vEst = vEst - (iIn-iOut)*.2   # voltage drop per amp - calibrated when net charge
+    else:
+        vEst = vEst + (iOut-iIn)*.09   # voltage drop per amp - calibrated when net disCharge
+    print("PV vIn: {:.2f}V".format(vIn), "vOut: {:.2f}V".format(vOut),"iIn: {:.2f}A".format(iIn), "iOut: {:.2f}A".format(iOut), "vEst: {:.2f}V".format(vEst))
     soc = 0
-    #soc800am = ((vOut-51.2)*25 + 20)/100 # obsolete linear approximation
-    if vOut > 51.2 and vOut <= 52.0:
-        soc = .2+.2*((vOut-51.2)/0.8)
-    elif vOut > 52.0 and vOut <= 52.4:
-        soc = 0.4 + .2*((vOut - 52.0)/.4)
-    elif vOut > 52.4 and vOut <= 53.8:
-        soc = 0.6 + .2*((vOut - 52.4)/1.8)
-    elif vOut > 53.8 and vOut <= 54.4: 
-        soc = 0.8 + .1*((vOut - 53.8)/.6)
+    #soc800am = ((vEst-51.2)*25 + 20)/100 # obsolete linear approximation
+    if vEst > 51.2 and vEst <= 52.0:
+        soc = .2+.2*((vEst-51.2)/0.8)
+    elif vEst > 52.0 and vEst <= 52.4:
+        soc = 0.4 + .2*((vEst - 52.0)/.4)
+    elif vEst > 52.4 and vEst <= 53.8:
+        soc = 0.6 + .2*((vEst - 52.4)/1.6)
+    elif vEst > 53.8 and vEst <= 54.4: 
+        soc = 0.8 + .1*((vEst - 53.8)/.6)
 
-    if vOut > 54.4:
+    if vEst > 54.4:
         soc = .95
-    elif vOut < 51.2:
+    elif vEst < 51.2:
         soc = .1
 
     # sleepDischargeRage W till 8am, dayDischargeRate 8am - 8pm (but only count till 3pm, rates rise)
@@ -155,19 +160,19 @@ if w is not None:
         + max(0.0, ((15 - max(current_time.tm_hour,8))*dayDischargeRate))
 
     # target is 90% SOC
-    yKwh = ((2.9 - soc*3.2) + expDraw   # charge needed to get to 90% now + additional drain till 3pm
+    yKwh = ((3.1 - soc*3.2) + expDraw   # charge needed to get to 90% now + additional drain till 3pm
             - batteryKwhAdj2)            # expected from solar
-    #print("adj vOut: {:.2f}V".format(vOut), "SOC: {:.0f}%".format(soc*100), "solar shortfall: {:.1f}Kwh".format(yKwh))
+    #print("vEst: {:.2f}V".format(vEst), "SOC: {:.0f}%".format(soc*100), "solar shortfall: {:.1f}Kwh".format(yKwh))
     bKwh8amNoChg = soc*3.2 - (24-current_time.tm_hour)*0.1 - max(0.0, (20 - current_time.tm_hour)*0.15)
     bKwh8amSolarOnly = bKwh8amNoChg + batteryKwhAdj2
-    print("deficit now: {:.2f}".format(3.2-soc*3.2), "expected draw: {:.2f}".format(expDraw), "solarCharge today: {:.1f}".format(batteryKwhAdj), "solarCharge remaining: {:.1f}".format(batteryKwhAdj2), "chg needed: {:.2f}".format(yKwh))
+    print("deficit now: {:.2f}".format(3.2-soc*3.2), "expected draw: {:.2f}".format(expDraw), "solarCharge today: {:.1f}".format(batteryKwhAdj), "solarCharge remaining: {:.1f}".format(batteryKwhAdj2))
 
     if yKwh < 0.0:
         chargerStartHour = 99
     else:
         chargerStartHour = math.floor(15-yKwh*5)
     #print("expected draw till 16:00: {:.1f}".format(max(0.0, expDraw+dayDischargeRate)), 'total chg needed (yKwh): {:.2f}'.format(yKwh))
-    print("SOC: {:.0f}%".format(soc*100), "solar shortfall: {:.1f}Kwh".format(yKwh),"start Charger: {:2d}:00".format(chargerStartHour))
+    print("SOC: {:.0f}%".format(soc*100), "solar shortfall: {:.1f}Kwh".format(yKwh), "chg needed: {:.2f}".format(yKwh), "start Charger: {:2d}:00".format(chargerStartHour))
     if abs(iOut - iIn) > 2.0:
         print("hi charge or discharge rate, net: {:.1f}, estimate unreliable".format( abs(iOut-iIn)))
 
@@ -181,9 +186,9 @@ if w is not None:
     if (time.time()-startTime) >= 120:
         print("\n*** timeout waiting for pv charger state ***\n")
     else:
-        print("pvChargerState:", pvChargerState, current_time.tm_hour, chargerStartHour)
-        if (current_time.tm_hour < 15 and chargerStartHour <= current_time.tm_hour):
+        # print("pvChargerState:", pvChargerState, current_time.tm_hour, chargerStartHour)
+        if (current_time.tm_hour < 15 and chargerStartHour <= current_time.tm_hour) or soc<.3:
             start_charging()
-        else:
+        elif current_time.tm_hour > 15 or chargerStartHour > current_time.tm_hour+1 or soc> .8:
             stop_charging()
             

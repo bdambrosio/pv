@@ -1,2 +1,2 @@
-#!/bin/bash
-python3 solarPredict.py
+#!/bin/sh
+python3 /home/pi/Documents/mpProjects/pv/solarPredict.py
