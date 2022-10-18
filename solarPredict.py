@@ -9,7 +9,7 @@ import sys
 w = None
 iIn = -1.0; iOut = -1.0; vIn = -1.0; vOut = -1.0
 sleepDischargeRate = .075 # Wh/hr
-dayDischargeRate = .19 # Wh/hr
+dayDischargeRate = .1 # Wh/hr
 #solar_capture_factor = {0:1.0, 1:1.0, 2:0.9, 3:0.8, 4:0.7, 5:0.6, 6:0.6}
 # new factors since estimate computation now includes cloud cover
 solar_capture_factor = {0:1.0, 1:1.0, 2:0.95, 3:0.9, 4:0.85, 5:0.8, 6:0.8}
@@ -158,8 +158,9 @@ if w is not None:
     # sleepDischargeRage W till 8am, dayDischargeRate 8am - 8pm (but only count till 3pm, rates rise)
     expDraw = 0.0
     if current_time.tm_hour < 15:
-        expDraw = (15-current_time.tm_hour)*sleepDischargeRate
-        + max(0.0, ((15 - max(current_time.tm_hour,8))*dayDischargeRate))
+        expDraw = (15-current_time.tm_hour)*sleepDischargeRate \
+        + max(0.0, (15 - max(current_time.tm_hour,8))*dayDischargeRate)
+    # print("exp draw hr", current_time.tm_hour, (15-current_time.tm_hour)*sleepDischargeRate, max(0.0, (15 - max(current_time.tm_hour,8))*dayDischargeRate))
 
     # target is 90% SOC
     yKwh = ((3.1 - soc*3.2) + expDraw   # charge needed to get to 90% now + additional drain till 3pm
@@ -174,7 +175,7 @@ if w is not None:
     else:
         chargerStartHour = math.floor(12-yKwh*5)  # start charger so we're done by noon
     #print("expected draw till 16:00: {:.1f}".format(max(0.0, expDraw+dayDischargeRate)), 'total chg needed (yKwh): {:.2f}'.format(yKwh))
-    print("SOC: {:.0f}%".format(soc*100), "solar shortfall: {:.1f}Kwh".format(yKwh), "chg needed: {:.2f}".format(yKwh), "start Charger: {:2d}:00".format(chargerStartHour))
+    print("SOC: {:.0f}%".format(soc*100), "solar shortfall: {:.2f}Kwh".format(yKwh), "chg needed: {:.2f}".format(yKwh), "start Charger: {:2d}:00".format(chargerStartHour))
     if abs(iOut - iIn) > 2.0:
         print("hi charge or discharge rate, net: {:.1f}, estimate unreliable".format( abs(iOut-iIn)))
 
