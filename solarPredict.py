@@ -57,7 +57,12 @@ def new_measurement(client, userdata, msg):
         else:
             vIn = measurement
 
-
+def vCorrection(vEst, iIn, iOut):
+    if (iIn - iOut) >=0:
+        vEst = vEst - (max(0.0,53-vEst)*(iIn-iOut)*.1) - (iIn-iOut)*.06   # voltage drop per amp - calibrated when net charge
+    else:
+        vEst = vEst + (iOut-iIn)*.09   # voltage drop per amp - calibrated when net disCharge
+    return vEst
     
 # start mqtt client
 def on_connect(client, userdata, flags, rc):
@@ -74,7 +79,7 @@ client = mqtt.Client()
 client.on_connect = on_connect
 client.on_message = new_measurement
 client.username_pw_set(username='solar', password='1947nw')
-client.connect("192.168.1.101", 1883, 60) 
+client.connect("127.0.0.1", 1883, 60) 
 
 client.subscribe('pv/battery/output/voltage')
 client.subscribe("pv/battery/output/current")
@@ -111,7 +116,7 @@ if w is not None:
     month = abs(month-6)
     cf = solar_capture_factor[month]
     batteryKwhAdj = batteryKwh * cf
-    solarDayLeft = 1.0-max(0.0, min((current_time.tm_hour-10), 6)/6.0) - (current_time.tm_min/60.0)/6.0
+    solarDayLeft = 1.0-max(0.0, min((current_time.tm_hour+(current_time.tm_min/60.0)/6.0-10), 6)/6.0)
     print("solarDayLeft:{:.0f}%".format(solarDayLeft*100))
     batteryKwhAdj2 = batteryKwhAdj*solarDayLeft
     print("cost ", wJSON['queryCost'], 'solar radiation', wJSON['days'][0]['solarradiation'], 'energy', wJSON['days'][0]['solarenergy'], "mJoules: ", "{:.1f}".format(expJoules), "solarKwh: {:.1f}".format(solarKwh),
@@ -132,10 +137,7 @@ if w is not None:
     #Below estimates net i=0 voltage based on net current draw/chg
     # vOut swings less with iIn, so weight that more heavily...
     vEst = (vIn/2+vOut)/1.5
-    if (iIn - iOut) > 0:
-        vEst = vEst - (iIn-iOut)*.2   # voltage drop per amp - calibrated when net charge
-    else:
-        vEst = vEst + (iOut-iIn)*.09   # voltage drop per amp - calibrated when net disCharge
+    vEst = vCorrection(vEst, iIn, iOut) # voltage drop per amp - calibrated when net charge
     print("PV vIn: {:.2f}V".format(vIn), "vOut: {:.2f}V".format(vOut),"iIn: {:.2f}A".format(iIn), "iOut: {:.2f}A".format(iOut), "vEst: {:.2f}V".format(vEst))
     soc = 0
     #soc800am = ((vEst-51.2)*25 + 20)/100 # obsolete linear approximation
@@ -170,7 +172,7 @@ if w is not None:
     if yKwh < 0.0:
         chargerStartHour = 99
     else:
-        chargerStartHour = math.floor(15-yKwh*5)
+        chargerStartHour = math.floor(12-yKwh*5)  # start charger so we're done by noon
     #print("expected draw till 16:00: {:.1f}".format(max(0.0, expDraw+dayDischargeRate)), 'total chg needed (yKwh): {:.2f}'.format(yKwh))
     print("SOC: {:.0f}%".format(soc*100), "solar shortfall: {:.1f}Kwh".format(yKwh), "chg needed: {:.2f}".format(yKwh), "start Charger: {:2d}:00".format(chargerStartHour))
     if abs(iOut - iIn) > 2.0:
@@ -180,6 +182,7 @@ if w is not None:
 
     rc = client.publish('cmnd/SP101/Power')
 
+    startTime = time.time()
     while not pvChargerStateValid and time.time() - startTime < 120:
        client.loop()
        time.sleep(.2)
@@ -187,7 +190,7 @@ if w is not None:
         print("\n*** timeout waiting for pv charger state ***\n")
     else:
         # print("pvChargerState:", pvChargerState, current_time.tm_hour, chargerStartHour)
-        if (current_time.tm_hour < 15 and chargerStartHour <= current_time.tm_hour) or soc<.3:
+        if (current_time.tm_hour < 15 and (chargerStartHour <= current_time.tm_hour or yKwh > 0.2)) or soc<.3:
             start_charging()
         elif current_time.tm_hour > 15 or chargerStartHour > current_time.tm_hour+1 or soc> .8:
             stop_charging()
