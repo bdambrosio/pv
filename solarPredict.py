@@ -9,7 +9,7 @@ import sys
 w = None
 iIn = -1.0; iOut = -1.0; vIn = -1.0; vOut = -1.0
 sleepDischargeRate = .075 # Wh/hr
-dayDischargeRate = .1 # Wh/hr
+dayDischargeRate = .07 # Wh/hr above overnight discharge rate
 #solar_capture_factor = {0:1.0, 1:1.0, 2:0.9, 3:0.8, 4:0.7, 5:0.6, 6:0.6}
 # new factors since estimate computation now includes cloud cover
 solar_capture_factor = {0:1.0, 1:1.0, 2:0.95, 3:0.9, 4:0.85, 5:0.8, 6:0.8}
@@ -173,7 +173,7 @@ if w is not None:
     if yKwh < 0.0:
         chargerStartHour = 99
     else:
-        chargerStartHour = math.floor(12-yKwh*5)  # start charger so we're done by noon
+        chargerStartHour = math.floor(14-yKwh*5)  # start charger so we're done by 2pm
     #print("expected draw till 16:00: {:.1f}".format(max(0.0, expDraw+dayDischargeRate)), 'total chg needed (yKwh): {:.2f}'.format(yKwh))
     print("SOC: {:.0f}%".format(soc*100), "solar shortfall: {:.2f}Kwh".format(yKwh), "chg needed: {:.2f}".format(yKwh), "start Charger: {:2d}:00".format(chargerStartHour))
     if abs(iOut - iIn) > 2.0:
@@ -191,7 +191,7 @@ if w is not None:
         print("\n*** timeout waiting for pv charger state ***\n")
     else:
         # print("pvChargerState:", pvChargerState, current_time.tm_hour, chargerStartHour)
-        if (current_time.tm_hour < 15 and (chargerStartHour <= current_time.tm_hour or yKwh > 0.2)) or soc<.3:
+        if (current_time.tm_hour < 15 and (chargerStartHour <= current_time.tm_hour or yKwh > 1.0)) or soc<.3:
             start_charging()
         elif current_time.tm_hour > 15 or chargerStartHour > current_time.tm_hour+1 or soc> .8:
             stop_charging()
