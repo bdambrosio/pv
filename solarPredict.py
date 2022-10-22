@@ -45,7 +45,7 @@ def new_measurement(client, userdata, msg):
         pvChargerState = (measurement["POWER"] == 'ON')
         pvChargerStateValid = True
         return
-    # print(topic, measurement)
+    print(topic, measurement)
     if 'output' in topic:
         if 'current' in topic:
             iOut = measurement
@@ -54,12 +54,12 @@ def new_measurement(client, userdata, msg):
     elif 'input' in topic:
         if 'current' in topic:
             iIn = measurement
-        else:
+        elif 'voltage' in topic:
             vIn = measurement
 
 def vCorrection(vEst, iIn, iOut):
     if (iIn - iOut) >=0:
-        vEst = vEst - (max(0.0,53-vEst)*(iIn-iOut)*.1) - (iIn-iOut)*.06   # voltage drop per amp - calibrated when net charge
+        vEst = vEst - (max(0.0,53.5-vEst)*(iIn-iOut)*.15) - (iIn-iOut)*.06   # voltage drop per amp - calibrated when net charge
     else:
         vEst = vEst + (iOut-iIn)*.09   # voltage drop per amp - calibrated when net disCharge
     return vEst
@@ -67,8 +67,7 @@ def vCorrection(vEst, iIn, iOut):
 # start mqtt client
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
-        pass
-        #print("\nMQTT connect success")
+        print("\nMQTT connect success")
     else:
         print(f"\nMQTT connect fail with code {rc}")
 
@@ -105,8 +104,15 @@ if w is not None:
     #print("status: ", w.status_code)
     wJSON = w.json()
     #print(wJSON)
-    expJoules = (wJSON['days'][0]['solarenergy'] * 28/10)   # energy in MJoules/m^2 * m^2 of my panels
-    solarKwh = expJoules/3.6                                # 1MJoule = 3.6 Kwh
+    expJoules = wJSON['days'][0]['solarenergy'] * 2.8   # energy in MJoules/m^2 * m^2 of my panels
+    expJoules2 = wJSON['days'][0]['solarradiation'] * .21  #second estimate from radiation figure
+    print(expJoules, expJoules2)
+    # problems with solarenergy data on 10/23
+    if expJoules > 25 and expJoules2 > 5 and expJoules2 < 25:
+        expJoules = expJoules2
+    elif expJoules < 25 and expJoules2 > 5 and expJoules2 < 23:
+        expJoules = (expJoules + expJoules2)/2.0
+    solarKwh = expJoules/3.6                               # 1MJoule = 3.6 Kwh
     cloudCover = wJSON['days'][0]['cloudcover']
     # batteryKwh = solarKwh * (1.0-cloudCover/100) * .18    # solar energy seems to include cloud cover
     batteryKwh = solarKwh * .18     # 20% efficiency panels/solarcharger/batteries - may need to derate in winter.
@@ -117,7 +123,7 @@ if w is not None:
     cf = solar_capture_factor[month]
     batteryKwhAdj = batteryKwh * cf
     solarDayLeft = 1.0-max(0.0, min((current_time.tm_hour+(current_time.tm_min/60.0)/6.0-10), 6)/6.0)
-    print("solarDayLeft:{:.0f}%".format(solarDayLeft*100))
+    print("\nsolarDayLeft:{:.0f}%".format(solarDayLeft*100))
     batteryKwhAdj2 = batteryKwhAdj*solarDayLeft
     print("cost ", wJSON['queryCost'], 'solar radiation', wJSON['days'][0]['solarradiation'], 'energy', wJSON['days'][0]['solarenergy'], "mJoules: ", "{:.1f}".format(expJoules), "solarKwh: {:.1f}".format(solarKwh),
          "pvKwhAvailable:", "{:.1f}".format(batteryKwhAdj2))
@@ -130,6 +136,9 @@ if w is not None:
        time.sleep(.2)
     if (time.time()-startTime) >= 120:
         print("\n*** timeout waiting for pv sensor data ***\n")
+        sys.exit(-1)
+
+
     # goal is to be at full chg by 4pm (end of solar),
     # turning on charger early enough that we can turn it off before 3pm peak rates
     # = soc800am - 1600wh (8:00-16:00 shop draw) + (exp charge from solar) + (charge from charger)
@@ -138,7 +147,6 @@ if w is not None:
     # vOut swings less with iIn, so weight that more heavily...
     vEst = (vIn/2+vOut)/1.5
     vEst = vCorrection(vEst, iIn, iOut) # voltage drop per amp - calibrated when net charge
-    print("PV vIn: {:.2f}V".format(vIn), "vOut: {:.2f}V".format(vOut),"iIn: {:.2f}A".format(iIn), "iOut: {:.2f}A".format(iOut), "vEst: {:.2f}V".format(vEst))
     soc = 0
     #soc800am = ((vEst-51.2)*25 + 20)/100 # obsolete linear approximation
     if vEst > 51.2 and vEst <= 52.0:
@@ -146,15 +154,16 @@ if w is not None:
     elif vEst > 52.0 and vEst <= 52.4:
         soc = 0.4 + .2*((vEst - 52.0)/.4)
     elif vEst > 52.4 and vEst <= 53.8:
-        soc = 0.6 + .2*((vEst - 52.4)/1.6)
-    elif vEst > 53.8 and vEst <= 54.4: 
-        soc = 0.8 + .1*((vEst - 53.8)/.6)
+        soc = 0.6 + .2*((vEst - 52.4)/1.2)
+    elif vEst > 53.8 and vEst <= 54.3: 
+        soc = 0.8 + .1*((vEst - 53.8)/.5)
 
     if vEst > 54.4:
         soc = .95
     elif vEst < 51.2:
         soc = .1
 
+    print("\nPV vIn: {:.2f}V".format(vIn), "vOut: {:.2f}V".format(vOut),"iIn: {:.2f}A".format(iIn), "iOut: {:.2f}A".format(iOut), "vEst: {:.2f}V".format(vEst), "SOC: {:.0f}%".format(soc*100))
     # sleepDischargeRage W till 8am, dayDischargeRate 8am - 8pm (but only count till 3pm, rates rise)
     expDraw = 0.0
     if current_time.tm_hour < 15:
@@ -165,21 +174,33 @@ if w is not None:
     # target is 90% SOC
     yKwh = ((3.1 - soc*3.2) + expDraw   # charge needed to get to 90% now + additional drain till 3pm
             - batteryKwhAdj2)            # expected from solar
-    #print("vEst: {:.2f}V".format(vEst), "SOC: {:.0f}%".format(soc*100), "solar shortfall: {:.1f}Kwh".format(yKwh))
-    bKwh8amNoChg = soc*3.2 - (24-current_time.tm_hour)*0.1 - max(0.0, (20 - current_time.tm_hour)*0.15)
-    bKwh8amSolarOnly = bKwh8amNoChg + batteryKwhAdj2
-    print("deficit now: {:.2f}".format(3.2-soc*3.2), "expected draw: {:.2f}".format(expDraw), "solarCharge today: {:.1f}".format(batteryKwhAdj), "solarCharge remaining: {:.1f}".format(batteryKwhAdj2))
 
+    bKwhNow = soc*3.2
+    bKwh8am = bKwhNow
+    # estimate for 8am tomorrow - can we make it from here with no charger?
+    hr = current_time.tm_hour
+    if hr < 8: # add drain till 8am
+        bKwhNow =- (8-current_time.tm_hour)*sleepDischargeRate
+
+    bKwh8am = 0.0
+    if hr < 16: # now add daytime drain till 4pm plus remaining charge from solar 
+        bKwh4pm = min(3.2, bKwhNow + batteryKwhAdj2 - (8-(max(0, hr-8)))*dayDischargeRate)
+        bKwh8am = bKwh4pm - 4*dayDischargeRate - 12*sleepDischargeRate
+    else:
+        bKwh8am = bKwhNow - max(0.0, 12-(hr-8))*dayDischargeRate - max(0.0, 12-(hr-20))*sleepDischargeRate
+    
+    print("  deficit now: {:.2f}".format(3.2-soc*3.2), "expected draw: {:.2f}".format(expDraw), "solarCharge today: {:.1f}".format(batteryKwhAdj), "solarCharge remaining: {:.1f}".format(batteryKwhAdj2))
+
+    if abs(iOut - iIn) > 2.0:
+        print("  ***hi charge or discharge rate, net: {:.1f}, estimate unreliable***".format( abs(iOut-iIn)))
+    print("  battery projected 8am (no chrger, just solar) Kwh: {:.2f}".format(bKwh8am),"SOC: {:.0f}%".format(bKwh8am/3.2*100.0))
     if yKwh < 0.0:
         chargerStartHour = 99
     else:
         chargerStartHour = math.floor(14-yKwh*5)  # start charger so we're done by 2pm
     #print("expected draw till 16:00: {:.1f}".format(max(0.0, expDraw+dayDischargeRate)), 'total chg needed (yKwh): {:.2f}'.format(yKwh))
-    print("SOC: {:.0f}%".format(soc*100), "solar shortfall: {:.2f}Kwh".format(yKwh), "chg needed: {:.2f}".format(yKwh), "start Charger: {:2d}:00".format(chargerStartHour))
-    if abs(iOut - iIn) > 2.0:
-        print("hi charge or discharge rate, net: {:.1f}, estimate unreliable".format( abs(iOut-iIn)))
+    print("  SOC: {:.0f}%".format(soc*100), "solar shortfall: {:.2f}Kwh".format(yKwh), "chg needed: {:.2f}".format(yKwh), "start Charger: {:2d}:00".format(chargerStartHour))
 
-    print("\nbattery projected 8am (no chrger, just solar) Kwh: {:.2f}".format(bKwh8amSolarOnly),"SOC: {:.0f}%".format(bKwh8amSolarOnly/3.2*100.0))
 
     rc = client.publish('cmnd/SP101/Power')
 
