@@ -12,7 +12,7 @@ sleepDischargeRate = .075 # Wh/hr
 dayDischargeRate = .07 # Wh/hr above overnight discharge rate
 #solar_capture_factor = {0:1.0, 1:1.0, 2:0.9, 3:0.8, 4:0.7, 5:0.6, 6:0.6}
 # new factors since estimate computation now includes cloud cover
-solar_capture_factor = {0:1.0, 1:1.0, 2:0.95, 3:0.9, 4:0.85, 5:0.8, 6:0.8}
+solar_capture_factor = {0:1.0, 1:1.0, 2:0.95, 3:0.9, 4:0.8, 5:0.7, 6:0.7}
 
 pvChargerStateValid = False
 pvChargerOn = False
@@ -105,17 +105,17 @@ if w is not None:
     wJSON = w.json()
     #print(wJSON)
     expJoules = wJSON['days'][0]['solarenergy'] * 2.8   # energy in MJoules/m^2 * m^2 of my panels
-    expJoules2 = wJSON['days'][0]['solarradiation'] * .21  #second estimate from radiation figure
-    print(expJoules, expJoules2)
+    expJoules2 = wJSON['days'][0]['solarradiation'] * .24  #second estimate from radiation figure
+    #print(expJoules, expJoules2)
     # problems with solarenergy data on 10/23
     if expJoules > 25 and expJoules2 > 5 and expJoules2 < 25:
         expJoules = expJoules2
-    elif expJoules < 25 and expJoules2 > 5 and expJoules2 < 23:
+    elif expJoules < 25 and expJoules2 > 5 and expJoules2 < 25:
         expJoules = (expJoules + expJoules2)/2.0
     solarKwh = expJoules/3.6                               # 1MJoule = 3.6 Kwh
     cloudCover = wJSON['days'][0]['cloudcover']
     # batteryKwh = solarKwh * (1.0-cloudCover/100) * .18    # solar energy seems to include cloud cover
-    batteryKwh = solarKwh * .18     # 20% efficiency panels/solarcharger/batteries - may need to derate in winter.
+    batteryKwh = min(3.6, solarKwh * .18)     # 20% efficiency panels/solarcharger/batteries
     month = current_time.tm_mon
     if month <= 6:
         month = month - 1
@@ -172,12 +172,11 @@ if w is not None:
     # print("exp draw hr", current_time.tm_hour, (15-current_time.tm_hour)*sleepDischargeRate, max(0.0, (15 - max(current_time.tm_hour,8))*dayDischargeRate))
 
     # target is 90% SOC
-    yKwh = ((3.1 - soc*3.2) + expDraw   # charge needed to get to 90% now + additional drain till 3pm
-            - batteryKwhAdj2)            # expected from solar
-
-    bKwhNow = soc*3.2
-    bKwh8am = bKwhNow
+    yKwh = max (0.0, (3.0 - soc*3.2) + expDraw   # charge needed to get to 90% now + additional drain till 3pm
+                      - batteryKwhAdj2)          # expected from solar
+    
     # estimate for 8am tomorrow - can we make it from here with no charger?
+    bKwhNow = soc*3.2
     hr = current_time.tm_hour
     if hr < 8: # add drain till 8am
         bKwhNow =- (8-current_time.tm_hour)*sleepDischargeRate
@@ -185,6 +184,7 @@ if w is not None:
     bKwh8am = 0.0
     if hr < 16: # now add daytime drain till 4pm plus remaining charge from solar 
         bKwh4pm = min(3.2, bKwhNow + batteryKwhAdj2 - (8-(max(0, hr-8)))*dayDischargeRate)
+        # now include 4 more hours of daytime rate till shutdown at 8pm, and overnight
         bKwh8am = bKwh4pm - 4*dayDischargeRate - 12*sleepDischargeRate
     else:
         bKwh8am = bKwhNow - max(0.0, 12-(hr-8))*dayDischargeRate - max(0.0, 12-(hr-20))*sleepDischargeRate
@@ -193,14 +193,13 @@ if w is not None:
 
     if abs(iOut - iIn) > 2.0:
         print("  ***hi charge or discharge rate, net: {:.1f}, estimate unreliable***".format( abs(iOut-iIn)))
-    print("  battery projected 8am (no chrger, just solar) Kwh: {:.2f}".format(bKwh8am),"SOC: {:.0f}%".format(bKwh8am/3.2*100.0))
+
     if yKwh < 0.0:
         chargerStartHour = 99
     else:
         chargerStartHour = math.floor(14-yKwh*5)  # start charger so we're done by 2pm
-    #print("expected draw till 16:00: {:.1f}".format(max(0.0, expDraw+dayDischargeRate)), 'total chg needed (yKwh): {:.2f}'.format(yKwh))
     print("  SOC: {:.0f}%".format(soc*100), "solar shortfall: {:.2f}Kwh".format(yKwh), "chg needed: {:.2f}".format(yKwh), "start Charger: {:2d}:00".format(chargerStartHour))
-
+    print("  battery projected 8am (no chrger, just solar) Kwh: {:.2f}".format(bKwh8am),"SOC: {:.0f}%".format(bKwh8am/3.2*100.0))
 
     rc = client.publish('cmnd/SP101/Power')
 
