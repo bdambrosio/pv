@@ -5,6 +5,7 @@ import paho.mqtt.client as mqtt
 import threading
 import math
 import sys
+from datetime import datetime, timezone
 from dateutil.parser import parse
 
 w = None
@@ -94,7 +95,7 @@ str_date = str(current_time.tm_year)+"-"+str(current_time.tm_mon)+"-"+str(curren
 if len(sys.argv) == 3:
     str_date = str(current_time.tm_year)+"-" + sys.argv[1] +"-" + sys.argv[2]
 
-print (str_date+":"+str(current_time.tm_hour))
+#print (str_date+":"+str(current_time.tm_hour))
 
 ###   compute solcast prediction   ###
 solcast_Kwh = -1
@@ -103,17 +104,20 @@ try:
         solcast_json = json.load(infile)
         num_forecasts = 0
         total_forecast = 0.0
+        utc = datetime.now(timezone.utc)
         for i in range(len(solcast_json['forecasts'])):
             forecast = solcast_json['forecasts'][i]
             pv_estimate = forecast["pv_estimate"]
             period_end = forecast["period_end"]
-            
-            #forecast_date = datetime.datetime.strptime(period_end, '%Y-%m-%dT%H:%M:%S.%fZ')
             forecast_date = parse(period_end)
             forecast_day = forecast_date.date().day
             forecast_hour = forecast_date.time().hour
-            if (forecast_day == current_time.tm_mday and forecast_hour > current_time.tm_hour+8
+            if (forecast_day == utc.date().day and forecast_hour >= utc.time().hour
                 and pv_estimate > 0.0):
+                if forecast_hour == utc.time().hour:
+                    pv_estimate = pv_estimate * (60-utc.time().minute)/60.0
+                if forecast_hour < 16 or forecast_hour > 22:
+                    pv_estimate = pv_estimate*.5
                 total_forecast += pv_estimate
                 num_forecasts += 1
                 #print(forecast_day, forecast_hour, pv_estimate)
