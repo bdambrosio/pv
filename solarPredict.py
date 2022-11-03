@@ -61,7 +61,7 @@ def new_measurement(client, userdata, msg):
 
 def vCorrection(vEst, iIn, iOut):
     if (iIn - iOut) >=0:
-        vEst = vEst - (max(0.0,53.5-vEst)*(iIn-iOut)*.15) - (iIn-iOut)*.06   # voltage drop per amp - calibrated when net charge
+        vEst = vEst - (max(0.0,vEst-52.5)*(iIn-iOut)*.07) - (iIn-iOut)*.06   # voltage drop per amp - calibrated when net charge
     else:
         vEst = vEst + (iOut-iIn)*.09   # voltage drop per amp - calibrated when net disCharge
     return vEst
@@ -105,9 +105,16 @@ try:
         num_forecasts = 0
         total_forecast = 0.0
         utc = datetime.now(timezone.utc)
+        month = current_time.tm_mon
+        if month <= 6:
+            month = month - 1
+        month = abs(month-6)
+        shading = solar_capture_factor[month]
         for i in range(len(solcast_json['forecasts'])):
             forecast = solcast_json['forecasts'][i]
             pv_estimate = forecast["pv_estimate"]
+            pv_10 = forecast["pv_estimate"]
+            pv_90 = forecast["pv_estimate"]
             period_end = forecast["period_end"]
             forecast_date = parse(period_end)
             forecast_day = forecast_date.date().day
@@ -116,8 +123,12 @@ try:
                 and pv_estimate > 0.0):
                 if forecast_hour == utc.time().hour:
                     pv_estimate = pv_estimate * (60-utc.time().minute)/60.0
-                if forecast_hour < 16 or forecast_hour > 22:
-                    pv_estimate = pv_estimate*.5
+                # below accounts for partial shading of panels near winter solstice
+                if forecast_hour < 19 or forecast_hour >= 22: # derate before 11 or after 2
+                    pv_estimate = pv_estimate*shading
+                # below accounts for overopimistic estimate early and late in day
+                if forecast_hour >= 23: # derate further after 3
+                    pv_estimate = pv_estimate*shading
                 total_forecast += pv_estimate
                 num_forecasts += 1
                 #print(forecast_day, forecast_hour, pv_estimate)
@@ -262,7 +273,7 @@ if abs(iOut - iIn) > 2.0:
 if yKwh < 0.0 or bKwh8am/3.2 > .6: # will be 95% at 4pm, or at least 60% at 8am with no further grid charge
     chargerStartHour = 99
 else:
-    chargerStartHour = math.floor(14-yKwh*5)  # start charger so we're done by 2pm
+    chargerStartHour = math.floor(15-yKwh*5)  # start charger so we're done by 2pm
 print("  SOC: {:.0f}%".format(soc*100), "solar shortfall: {:.2f}Kwh".format(yKwh), "chg needed: {:.2f}".format(yKwh), "start Charger: {:2d}:00".format(chargerStartHour))
 print("  battery projected 8am (no chrger, just solar) Kwh: {:.2f}".format(bKwh8am),"SOC: {:.0f}%".format(bKwh8am/3.2*100.0))
 
