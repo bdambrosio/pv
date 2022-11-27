@@ -7,24 +7,14 @@ import math
 import sys
 
 try:
-    w = requests.get("https://api.solcast.com.au/rooftop_sites/ef90-5ab9-3b1e-8602/forecasts?format=json",
-                     cookies={'_fbp':'fb.2.1666712018017.665241469',
-                              '_lfa':'LF1.1.29c86318a58dab47.1666712018225',
-                              '_gid':'GA1.3.796218654.1666711753',
-                              'intercom-id-r2l1t14h':'76b6cbb8-6315-4cbb-8ee9-35eeb7fed015',
-                              'ss-id':'JbbkNuAKQCLhPBPDFzC3',
-                              'ss-pid':'yCtjbW7JtoBPBDjahUSV',
-                              'ss-opt':'temp',
-                              'X-UAId':'34305',
-                              '_hjSessionUser_1767543':'eyJpZCI6IjhlNDU2NmVhLWYxNDUtNWFjOS04ODEwLTk4NTVhNWY2NmQ3YiIsImNyZWF0ZWQiOjE2NjY3MTIwMTgwODUsImV4aXN0aW5nIjp0cnVlfQ=='})
-    
-    #w = requests.get("https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/94044/"+str_date+"/?unitGroup=us&key=NS8CY2VL7AEGA6LJCJ83G9EYB&contentType=json&include=current")
+    w = requests.get("https://api.solcast.com.au/rooftop_sites/ef90-5ab9-3b1e-8602/forecasts?format=json&api_key=ZvnsFTgK4EuxWU37gP4dLH8ZxNoTPcla")
 except Exception as e:
     print("problem w requests.get", e)
 
 current_time = time.localtime()
 if w is not None:
     #print("status: ", w.status_code)
+    #print(w)
     try:
         solcast_json = w.json()
         with open('/home/pi/Documents/mpProjects/pv/solcast.json', 'w') as outfile:

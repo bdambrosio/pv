@@ -61,7 +61,7 @@ def new_measurement(client, userdata, msg):
 
 def vCorrection(vEst, iIn, iOut):
     if (iIn - iOut) >=0:
-        vEst = vEst - (max(0.0,vEst-52.5)*(iIn-iOut)*.07) - (iIn-iOut)*.06   # voltage drop per amp - calibrated when net charge
+        vEst = vEst - 0.2 - (max(0.0,vEst-52.5)*(iIn-iOut)*.05) - (iIn-iOut)*.06   # voltage drop per amp - calibrated when net charge
     else:
         vEst = vEst + (iOut-iIn)*.09   # voltage drop per amp - calibrated when net disCharge
     return vEst
@@ -191,6 +191,8 @@ except:
 
 if solcast_Kwh > 0.0:
     solar_Kwh = solcast_Kwh
+    if visualCrossing_Kwh > 0.0 and visualCrossing_Kwh < solcast_Kwh:
+        solar_Kwh = (solcast_Kwh+0.2*visualCrossing_Kwh)/1.2
 elif visualCrossing_Kwh > 0.0:
     solar_Kwh = visualCrossing_Kwh
 else:
@@ -273,7 +275,7 @@ if abs(iOut - iIn) > 2.0:
 if yKwh < 0.0 or bKwh8am/3.2 > .6: # will be 95% at 4pm, or at least 60% at 8am with no further grid charge
     chargerStartHour = 99
 else:
-    chargerStartHour = math.floor(15-yKwh*5)  # start charger so we're done by 2pm
+    chargerStartHour = math.floor(12-yKwh*5)  # start charger so we're done by 2pm
 print("  SOC: {:.0f}%".format(soc*100), "solar shortfall: {:.2f}Kwh".format(yKwh), "chg needed: {:.2f}".format(yKwh), "start Charger: {:2d}:00".format(chargerStartHour))
 print("  battery projected 8am (no chrger, just solar) Kwh: {:.2f}".format(bKwh8am),"SOC: {:.0f}%".format(bKwh8am/3.2*100.0))
 
@@ -287,8 +289,8 @@ if (time.time()-startTime) >= 120:
     print("\n*** timeout waiting for pv charger state ***\n")
 else:
     # print("pvChargerState:", pvChargerState, current_time.tm_hour, chargerStartHour)
-    if (current_time.tm_hour < 15 and (chargerStartHour <= current_time.tm_hour or yKwh > 1.0)) or soc<.3:
+    if (current_time.tm_hour < 15 and (chargerStartHour <= current_time.tm_hour or yKwh > 1.5)) or soc<.4:
         start_charging()
-    elif current_time.tm_hour > 15 or chargerStartHour > current_time.tm_hour+1 or soc> .8:
+    elif current_time.tm_hour > 14 or chargerStartHour > current_time.tm_hour+1 or soc> .9:
         stop_charging()
             
