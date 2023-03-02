@@ -10,11 +10,11 @@ from dateutil.parser import parse
 
 w = None
 iIn = -1.0; iOut = -1.0; vIn = -1.0; vOut = -1.0
-sleepDischargeRate = .075 # Wh/hr
+sleepDischargeRate = .14 # Wh/hr
 dayDischargeRate = .07 # Wh/hr above overnight discharge rate
 #solar_capture_factor = {0:1.0, 1:1.0, 2:0.9, 3:0.8, 4:0.7, 5:0.6, 6:0.6}
 # new factors since estimate computation now includes cloud cover
-solar_capture_factor = {0:1.0, 1:1.0, 2:0.95, 3:0.9, 4:0.8, 5:0.7, 6:0.7}
+solar_capture_factor = {0:1.0, 1:1.0, 2:0.95, 3:0.9, 4:0.85, 5:0.8, 6:0.8}
 
 pvChargerStateValid = False
 pvChargerOn = False
@@ -61,9 +61,9 @@ def new_measurement(client, userdata, msg):
 
 def vCorrection(vEst, iIn, iOut):
     if (iIn - iOut) >=0:
-        vEst = vEst - 0.2 - (max(0.0,vEst-52.5)*(iIn-iOut)*.05) - (iIn-iOut)*.06   # voltage drop per amp - calibrated when net charge
+        vEst = vEst - 0.3 - (max(0.0,vEst-52.0)*(iIn-iOut)*.06) - (iIn-iOut)*.1   # voltage drop per amp - calibrated when net charge
     else:
-        vEst = vEst + (iOut-iIn)*.09   # voltage drop per amp - calibrated when net disCharge
+        vEst = vEst + (iOut-iIn)*.08   # voltage drop per amp - calibrated when net discharge
     return vEst
     
 # start mqtt client
@@ -124,7 +124,7 @@ try:
                 if forecast_hour == utc.time().hour:
                     pv_estimate = pv_estimate * (60-utc.time().minute)/60.0
                 # below accounts for partial shading of panels near winter solstice
-                if forecast_hour < 19 or forecast_hour >= 22: # derate before 11 or after 2
+                if forecast_hour < 19 or forecast_hour >= 21: # derate before 11 or after 1 PDT
                     pv_estimate = pv_estimate*shading
                 # below accounts for overopimistic estimate early and late in day
                 if forecast_hour >= 23: # derate further after 3
@@ -228,11 +228,11 @@ try:
         soc = 0.4 + .2*((vEst - 52.0)/.4)
     elif vEst > 52.4 and vEst <= 53.8:
         soc = 0.6 + .2*((vEst - 52.4)/1.2)
-    elif vEst > 53.8 and vEst <= 54.3: 
-        soc = 0.8 + .1*((vEst - 53.8)/.5)
+    elif vEst > 53.8 and vEst <= 55.5: 
+        soc = 0.8 + .1*((vEst - 55.5)/.5)
 
-    if vEst > 54.4:
-        soc = .95
+    if vEst > 55.5:
+        soc = .99
     elif vEst < 51.2:
         soc = .1
 
@@ -251,8 +251,8 @@ if current_time.tm_hour < 15:
     # print("exp draw hr", current_time.tm_hour, (15-current_time.tm_hour)*sleepDischargeRate, max(0.0, (15 - max(current_time.tm_hour,8))*dayDischargeRate))
 
 # target is 90% SOC
-yKwh = max (0.0, (3.0 - soc*3.2) + expDraw   # charge needed to get to 90% now + additional drain till 3pm
-            - solar_Kwh)          # expected from solar
+yKwh = max (0.0, (2.8 - soc*3.2) + expDraw   # charge needed to get to 90% now + additional drain till 3pm
+            - solar_Kwh)          # expected from solar remainder of day is always current from solcast
     
 # estimate for 8am tomorrow - can we make it from here with no charger?
 bKwhNow = soc*3.2
@@ -267,15 +267,15 @@ if hr < 16: # now add daytime drain till 4pm plus remaining charge from solar
 else:
     bKwh8am = bKwhNow - max(0.0, 12-(hr-8))*dayDischargeRate - max(0.0, 12-(hr-20))*sleepDischargeRate
     
-print("  deficit now: {:.2f}".format(3.2-soc*3.2), "expected draw: {:.2f}".format(expDraw), "solarCharge today: {:.1f}".format(solar_Kwh), "solarCharge remaining: {:.1f}".format(solar_Kwh))
+print("  deficit now(from 85% target): {:.2f}".format(2.8-soc*3.2), "expected draw: {:.2f}".format(expDraw), "solarCharge today: {:.1f}".format(solar_Kwh), "solarCharge remaining: {:.1f}".format(solar_Kwh))
 
 if abs(iOut - iIn) > 2.0:
     print("  ***hi charge or discharge rate, net: {:.1f}, estimate unreliable***".format( abs(iOut-iIn)))
     
-if yKwh < 0.0 or bKwh8am/3.2 > .6: # will be 95% at 4pm, or at least 60% at 8am with no further grid charge
+if yKwh < 0.0 or bKwh8am/3.2 > .6: # will be 85% at 4pm, or at least 60% at 8am with no further grid charge
     chargerStartHour = 99
 else:
-    chargerStartHour = math.floor(12-yKwh*5)  # start charger so we're done by 2pm
+    chargerStartHour = math.floor(14-yKwh*5)  # start charger so we're done by 12 noon
 print("  SOC: {:.0f}%".format(soc*100), "solar shortfall: {:.2f}Kwh".format(yKwh), "chg needed: {:.2f}".format(yKwh), "start Charger: {:2d}:00".format(chargerStartHour))
 print("  battery projected 8am (no chrger, just solar) Kwh: {:.2f}".format(bKwh8am),"SOC: {:.0f}%".format(bKwh8am/3.2*100.0))
 
@@ -289,8 +289,9 @@ if (time.time()-startTime) >= 120:
     print("\n*** timeout waiting for pv charger state ***\n")
 else:
     # print("pvChargerState:", pvChargerState, current_time.tm_hour, chargerStartHour)
-    if (current_time.tm_hour < 15 and (chargerStartHour <= current_time.tm_hour or yKwh > 1.5)) or soc<.4:
+    if ( (current_time.tm_hour < 15 and (chargerStartHour <= current_time.tm_hour or yKwh > 1.5) and soc < .85)
+         or soc<.5):
         start_charging()
-    elif current_time.tm_hour > 14 or chargerStartHour > current_time.tm_hour+1 or soc> .9:
+    elif (current_time.tm_hour > 14 or chargerStartHour > current_time.tm_hour or soc > .9):
         stop_charging()
             
